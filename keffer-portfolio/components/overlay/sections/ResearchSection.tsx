@@ -3,51 +3,7 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import { springs } from "@/lib/tokens";
-
-interface TimelineEntry {
-  year: string;
-  title: string;
-  description: string;
-  type: "research" | "experience";
-}
-
-const timeline: TimelineEntry[] = [
-  {
-    year: "2026",
-    title: "Generative Systems & Computational Aesthetics",
-    description:
-      "Research into how constrained algorithmic systems produce emergent visual complexity. Exploring the design space between fully deterministic and fully random generative processes.",
-    type: "research",
-  },
-  {
-    year: "2025",
-    title: "Interactive Data Sculpture",
-    description:
-      "Investigation into physical-digital hybrid representations of complex datasets. Published methods for encoding temporal data as mathematical surfaces suitable for additive manufacturing.",
-    type: "research",
-  },
-  {
-    year: "2025",
-    title: "Full-Stack Development & Creative Technology",
-    description:
-      "Building production web applications with a focus on performance-critical rendering, WebGL integration, and real-time data visualization systems.",
-    type: "experience",
-  },
-  {
-    year: "2024",
-    title: "Machine Learning for Design Systems",
-    description:
-      "Exploring neural network architectures that learn design principles from large corpora of typographic and graphic design work. Focus on interpolation between learned styles.",
-    type: "research",
-  },
-  {
-    year: "2024",
-    title: "Creative Coding & Installations",
-    description:
-      "Developing real-time generative visual installations for gallery exhibitions. Custom shader pipelines, sensor integration, and audience-responsive systems.",
-    type: "experience",
-  },
-];
+import { extracurriculars, Extracurricular } from "@/content/projects";
 
 export default function ResearchSection() {
   const ref = useRef<HTMLElement>(null);
@@ -58,7 +14,7 @@ export default function ResearchSection() {
       id="research"
       ref={ref}
       className="relative min-h-screen flex items-center py-32"
-      aria-label="Research & Experience"
+      aria-label="Extracurriculars"
     >
       <div className="w-full px-6 md:px-12 lg:px-20">
         <div className="ml-auto mr-[5%] md:mr-[10%] max-w-[560px] content-panel">
@@ -73,14 +29,14 @@ export default function ResearchSection() {
               className="font-mono text-[11px] tracking-[0.15em] uppercase"
               style={{ color: "#0099FF" }}
             >
-              04
+              05
             </span>
             <div className="h-px w-10" style={{ backgroundColor: "#0099FF" }} />
             <span
               className="font-mono text-[11px] tracking-[0.15em] uppercase"
               style={{ color: "#333333" }}
             >
-              Research & Experience
+              Extracurriculars
             </span>
           </motion.div>
 
@@ -95,13 +51,13 @@ export default function ResearchSection() {
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ type: "spring", ...springs.gentle, delay: 0.15 }}
           >
-            Depth & Rigor
+            Extracurriculars
           </motion.h2>
 
-          {/* Timeline entries - sequential reveal (§7.3) */}
+          {/* Extracurricular entries */}
           <div className="space-y-10">
-            {timeline.map((entry, i) => (
-              <TimelineItem key={i} entry={entry} index={i} isInView={isInView} />
+            {extracurriculars.map((entry, i) => (
+              <ExtracurricularItem key={entry.id} entry={entry} index={i} isInView={isInView} />
             ))}
           </div>
         </div>
@@ -110,12 +66,12 @@ export default function ResearchSection() {
   );
 }
 
-function TimelineItem({
+function ExtracurricularItem({
   entry,
   index,
   isInView,
 }: {
-  entry: TimelineEntry;
+  entry: Extracurricular;
   index: number;
   isInView: boolean;
 }) {
@@ -133,12 +89,7 @@ function TimelineItem({
       {/* Timeline line */}
       <motion.div
         className="absolute left-0 top-0 w-px h-full origin-top"
-        style={{
-          backgroundColor:
-            entry.type === "research"
-              ? "rgba(0, 153, 255, 0.4)"
-              : "rgba(0, 0, 0, 0.15)",
-        }}
+        style={{ backgroundColor: "rgba(0, 153, 255, 0.4)" }}
         initial={{ scaleY: 0 }}
         animate={isInView ? { scaleY: 1 } : {}}
         transition={{ duration: 0.6, delay: 0.4 + index * 0.12 }}
@@ -147,31 +98,19 @@ function TimelineItem({
       {/* Timeline dot */}
       <div
         className="absolute left-[-2.5px] top-[6px] w-[6px] h-[6px] rounded-full"
-        style={{
-          backgroundColor:
-            entry.type === "research" ? "#0099FF" : "#1A1A1A",
-        }}
+        style={{ backgroundColor: "#0099FF" }}
       />
 
-      {/* Year + type */}
-      <div className="flex items-center gap-3 mb-2">
-        <span
-          className="font-mono text-[11px] tracking-wider"
-          style={{ color: "#333333" }}
-        >
-          {entry.year}
-        </span>
+      {/* Role */}
+      <div className="mb-2">
         <span
           className="font-mono text-[10px] tracking-wider uppercase px-2 py-0.5"
           style={{
-            color: entry.type === "research" ? "#0099FF" : "#333333",
-            backgroundColor:
-              entry.type === "research"
-                ? "rgba(0, 153, 255, 0.06)"
-                : "rgba(0, 0, 0, 0.04)",
+            color: "#0099FF",
+            backgroundColor: "rgba(0, 153, 255, 0.06)",
           }}
         >
-          {entry.type}
+          {entry.role}
         </span>
       </div>
 
@@ -189,7 +128,7 @@ function TimelineItem({
 
       {/* Description */}
       <p
-        className="font-sans"
+        className="font-sans mb-3"
         style={{
           fontSize: "15px",
           lineHeight: 1.6,
@@ -198,6 +137,19 @@ function TimelineItem({
       >
         {entry.description}
       </p>
+
+      {/* Link */}
+      {entry.url && (
+        <a
+          href={entry.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-mono text-[12px] tracking-wide transition-opacity hover:opacity-70"
+          style={{ color: "#0099FF" }}
+        >
+          Visit site &rarr;
+        </a>
+      )}
     </motion.div>
   );
 }

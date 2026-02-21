@@ -40,7 +40,7 @@ export default function AboutSection() {
             </span>
           </motion.div>
 
-          {/* Philosophy text - §10.1 Act 2 */}
+          {/* Bio heading */}
           <motion.h2
             className="font-sans font-semibold mb-8"
             style={{
@@ -52,9 +52,7 @@ export default function AboutSection() {
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ type: "spring", ...springs.gentle, delay: 0.15 }}
           >
-            At the intersection of
-            <br />
-            computation and craft
+            Bio
           </motion.h2>
 
           <motion.p
@@ -68,27 +66,15 @@ export default function AboutSection() {
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ type: "spring", ...springs.gentle, delay: 0.3 }}
           >
-            I build systems that exist at the boundary between algorithmic
-            precision and human expression. My work explores how generative
-            processes, computational thinking, and careful design can produce
-            artifacts that feel both intentional and emergent.
-          </motion.p>
-
-          <motion.p
-            className="font-sans mb-6"
-            style={{
-              fontSize: "16px",
-              lineHeight: 1.6,
-              color: "#1A1A1A",
-            }}
-            initial={{ opacity: 0, y: 15 }}
-            animate={isInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ type: "spring", ...springs.gentle, delay: 0.45 }}
-          >
-            Every project begins with a question: what happens when we let
-            machines participate in the creative process — not as tools to be
-            wielded, but as collaborators with their own logic? The answer is
-            always surprising, always imperfect, always worth pursuing.
+            William is a sophomore pursuing a BS in Computer Science and
+            Mathematics at UNC Chapel Hill. His research includes adversarial
+            machine learning, vision-language model security, and
+            satellite-economic analysis. His primary interests now are machine
+            learning and the intersections of analysis and abstract algebra
+            with computational methods. He loves talking about all things
+            related to these fields. In his free time William enjoys designing
+            redstone contraptions in technical Minecraft, tending his Stardew
+            Valley farm, and listening to Pitcher 56 and Aphex Twin.
           </motion.p>
 
           <motion.p
@@ -100,10 +86,11 @@ export default function AboutSection() {
             }}
             initial={{ opacity: 0, y: 15 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ type: "spring", ...springs.gentle, delay: 0.6 }}
+            transition={{ type: "spring", ...springs.gentle, delay: 0.45 }}
           >
-            This site itself is the proof of concept. Inspired by the abstract
-            work of{" "}
+            I built this site to reflect some of the design styles and
+            aesthetics that resonate with me. Inspired by the abstract work
+            of{" "}
             <a
               href="https://www.instagram.com/aletiune/?hl=en"
               target="_blank"
@@ -112,12 +99,17 @@ export default function AboutSection() {
             >
               Aletiune
             </a>
-            , nine rendering layers stack from back to front — hand-drawn
-            chrome brush strokes on Canvas 2D deform with scroll, sky
-            photograph fragments drift on independent sinusoidal paths,
-            particle dust and film grain add analog texture, and a glitch
-            layer ticks with its own internal clock. Everything composites in
-            the browser with no WebGL, no video, and no pre-rendered assets.
+            , nine rendering layers stack from back to front forming a highly
+            chaotic and variable scene. This portfolio runs on Next.js 16 with
+            TypeScript, Tailwind CSS, and Zustand, rendering a multi-layered
+            composition of canvas-drawn chrome strokes, drifting sky fragments,
+            particle dust, and glitch artifacts at 60fps. A date-derived seed
+            feeds a Mulberry32 pseudo-random number generator each day,
+            deterministically driving the placement, curvature, and styling of
+            every visual element so the composition stays consistent within a
+            single day. When the date changes, the seed advances and the entire
+            visual landscape regenerates, ensuring the site looks different
+            every day while maintaining its cohesive aesthetic.
           </motion.p>
 
           {/* Skills as minimal tags */}
@@ -128,15 +120,15 @@ export default function AboutSection() {
             transition={{ delay: 0.8, duration: 0.6 }}
           >
             {[
-              "Next.js 16",
-              "React 19",
+              "Python",
               "TypeScript",
-              "Tailwind CSS 4",
-              "Canvas 2D",
-              "Framer Motion",
-              "Zustand",
-              "Lenis",
-              "Turbopack",
+              "Rust",
+              "Machine Learning",
+              "PyTorch",
+              "React",
+              "Next.js",
+              "AWS",
+              "Kubernetes",
             ].map((skill, i) => (
               <motion.span
                 key={skill}

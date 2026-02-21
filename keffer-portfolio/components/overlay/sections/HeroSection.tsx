@@ -46,7 +46,7 @@ export default function HeroSection() {
               delay: 0.6,
             }}
           >
-            Computation &times; Design &times; Generative Systems
+            Computer Science &times; Mathematics &times; Machine Learning
           </motion.p>
 
           {/* Subtle descriptor line */}

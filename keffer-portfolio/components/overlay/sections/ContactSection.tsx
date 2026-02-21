@@ -28,7 +28,7 @@ export default function ContactSection() {
               className="font-mono text-[11px] tracking-[0.15em] uppercase"
               style={{ color: "#0099FF" }}
             >
-              05
+              06
             </span>
             <div className="h-px w-10" style={{ backgroundColor: "#0099FF" }} />
             <span
@@ -141,7 +141,7 @@ export default function ContactSection() {
               className="font-mono text-[11px] tracking-[0.1em] leading-relaxed"
               style={{ color: "#999999" }}
             >
-              Designed & built with Next.js, Three.js, and generative algorithms.
+              Designed & built with Next.js, TypeScript, and generative algorithms.
               <br />
               The compositions are generative and change daily.
             </p>

@@ -19,20 +19,20 @@ const jetbrainsMono = JetBrains_Mono({
 
 // SEO Metadata (§16)
 export const metadata: Metadata = {
-  title: "William Keffer — Computation × Design × Generative Systems",
+  title: "William Keffer — Computer Science × Mathematics × Machine Learning",
   description:
-    "Portfolio of William Keffer. Building systems at the intersection of algorithmic precision and human expression. WebGL, generative design, creative coding.",
+    "Portfolio of William Keffer. Sophomore at UNC Chapel Hill pursuing Computer Science and Mathematics. Research in adversarial machine learning, VLM security, and satellite-economic analysis.",
   openGraph: {
     title: "William Keffer — Portfolio",
     description:
-      "Computation × Design × Generative Systems. A WebGL-driven portfolio exploring the aesthetics of complexity.",
+      "Computer Science × Mathematics × Machine Learning. Research in adversarial ML, VLM security, and satellite-economic analysis.",
     type: "website",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
     title: "William Keffer — Portfolio",
-    description: "Computation × Design × Generative Systems",
+    description: "Computer Science × Mathematics × Machine Learning",
   },
   robots: {
     index: true,

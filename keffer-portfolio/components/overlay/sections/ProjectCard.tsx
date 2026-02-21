@@ -47,17 +47,37 @@ export default function ProjectCard({ project, index, isLeft }: ProjectCardProps
         <div className="h-px flex-grow max-w-[40px]" style={{ backgroundColor: "#CCCCCC" }} />
       </div>
 
-      {/* Title */}
-      <h3
-        className="font-sans font-semibold mb-3"
-        style={{
-          fontSize: "clamp(20px, 2.5vw, 25px)",
-          lineHeight: 1.3,
-          color: "#000000",
-        }}
-      >
-        {project.title}
-      </h3>
+      {/* Title row with optional logo */}
+      <div className="flex items-center gap-4 mb-3">
+        {project.image && (
+          <div
+            className="flex-shrink-0 rounded overflow-hidden"
+            style={{
+              width: 40,
+              height: 40,
+              backgroundColor: "rgba(0,0,0,0.03)",
+            }}
+          >
+            <img
+              src={project.image}
+              alt={`${project.title} logo`}
+              className="w-full h-full object-contain"
+              loading="lazy"
+              draggable={false}
+            />
+          </div>
+        )}
+        <h3
+          className="font-sans font-semibold"
+          style={{
+            fontSize: "clamp(20px, 2.5vw, 25px)",
+            lineHeight: 1.3,
+            color: "#000000",
+          }}
+        >
+          {project.title}
+        </h3>
+      </div>
 
       {/* Description */}
       <p

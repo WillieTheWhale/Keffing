@@ -6,9 +6,9 @@ import { useStore } from "@/lib/store";
 const sectionList = [
   { id: "hero", label: "01" },
   { id: "about", label: "02" },
-  { id: "projects", label: "03" },
-  { id: "research", label: "04" },
-  { id: "contact", label: "05" },
+  { id: "projects", label: "03–04" },
+  { id: "research", label: "05" },
+  { id: "contact", label: "06" },
 ];
 
 const sectionOrder: Record<string, number> = {
