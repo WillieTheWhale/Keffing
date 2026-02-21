@@ -95,6 +95,8 @@ const SkyFragmentsCSS = memo(function SkyFragmentsCSS() {
     const rng = mulberry32(seed + 555);
     const count =
       deviceTier === "mobile" ? 10 : deviceTier === "tablet" ? 18 : 28;
+    const sizeScale =
+      deviceTier === "mobile" ? 0.5 : deviceTier === "tablet" ? 0.75 : 1.0;
 
     const result: SkyBlockData[] = [];
 
@@ -126,15 +128,15 @@ const SkyFragmentsCSS = memo(function SkyFragmentsCSS() {
       // Horizontal position: full width scatter
       const x = 2 + rng() * 88; // 2–90%
 
-      // Size: mix of small, medium, large fragments
+      // Size: mix of small, medium, large fragments (scaled by device tier)
       const sizeRoll = rng();
       let w: number;
       if (sizeRoll < 0.3) {
-        w = 60 + rng() * 100;        // small: 60–160px
+        w = (60 + rng() * 100) * sizeScale;        // small: 60–160px × scale
       } else if (sizeRoll < 0.7) {
-        w = 120 + rng() * 160;       // medium: 120–280px
+        w = (120 + rng() * 160) * sizeScale;       // medium: 120–280px × scale
       } else {
-        w = 250 + rng() * 200;       // large: 250–450px
+        w = (250 + rng() * 200) * sizeScale;       // large: 250–450px × scale
       }
       const aspectRatio = 0.4 + rng() * 0.9; // 0.4–1.3
       const h = w * aspectRatio;
@@ -192,6 +194,8 @@ const SkyFragmentsCSS = memo(function SkyFragmentsCSS() {
     // ── build per-fragment animation state (seeded, deterministic) ──
     const animRng = mulberry32(seed + 777);
     const anims: FragmentAnim[] = [];
+    const driftScale =
+      deviceTier === "mobile" ? 0.5 : deviceTier === "tablet" ? 0.75 : 1.0;
 
     for (let i = 0; i < count; i++) {
       const baseOpacity = parseFloat(els[i].dataset.baseOpacity || "0.7");
@@ -199,8 +203,8 @@ const SkyFragmentsCSS = memo(function SkyFragmentsCSS() {
       anims.push({
         // Drift: unique frequencies per fragment → never synchronized.
         // Frequency range ~0.015–0.055 Hz = one full cycle every 18–66 seconds.
-        driftAmpX: 25 + animRng() * 65,    // 25–90px
-        driftAmpY: 12 + animRng() * 30,    // 12–42px
+        driftAmpX: (25 + animRng() * 65) * driftScale,    // 25–90px × scale
+        driftAmpY: (12 + animRng() * 30) * driftScale,    // 12–42px × scale
         driftFreqX: 0.015 + animRng() * 0.04,
         driftFreqY: 0.012 + animRng() * 0.035,
         driftPhaseX: animRng() * TWO_PI,
@@ -261,7 +265,7 @@ const SkyFragmentsCSS = memo(function SkyFragmentsCSS() {
     rafId = requestAnimationFrame(tick);
 
     return () => cancelAnimationFrame(rafId);
-  }, [blocks, reducedMotion]);
+  }, [blocks, reducedMotion, deviceTier]);
 
   /* ── render ─────────────────────────────────────────────────── */
   return (

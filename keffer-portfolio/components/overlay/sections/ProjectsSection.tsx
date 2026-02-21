@@ -20,7 +20,7 @@ export default function ProjectsSection() {
     >
       <div className="w-full px-6 md:px-12 lg:px-20">
         {/* Experience sub-header */}
-        <div className="ml-auto mr-[5%] md:mr-[15%] max-w-[520px] mb-20 content-panel">
+        <div className="mx-auto md:ml-auto md:mr-[15%] max-w-[520px] mb-20 content-panel">
           <motion.div
             className="flex items-center gap-3 mb-6"
             initial={{ opacity: 0, x: -20 }}
@@ -70,7 +70,7 @@ export default function ProjectsSection() {
         </div>
 
         {/* Projects sub-header */}
-        <div className="ml-auto mr-[5%] md:mr-[15%] max-w-[520px] mt-32 mb-20 content-panel">
+        <div className="mx-auto md:ml-auto md:mr-[15%] max-w-[520px] mt-32 mb-20 content-panel">
           <motion.div
             className="flex items-center gap-3 mb-6"
             initial={{ opacity: 0, x: -20 }}

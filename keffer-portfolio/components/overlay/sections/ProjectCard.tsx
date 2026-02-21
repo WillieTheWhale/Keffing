@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import { Project } from "@/content/projects";
 import { springs } from "@/lib/tokens";
+import { useStore } from "@/lib/store";
 
 interface ProjectCardProps {
   project: Project;
@@ -14,17 +15,23 @@ interface ProjectCardProps {
 export default function ProjectCard({ project, index, isLeft }: ProjectCardProps) {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-80px" });
+  const deviceTier = useStore((s) => s.deviceTier);
+  const isMobile = deviceTier === "mobile";
 
   return (
     <motion.div
       ref={ref}
       className={`relative max-w-[480px] content-panel ${
-        isLeft ? "mr-auto ml-[5%] md:ml-[10%]" : "ml-auto mr-[5%] md:mr-[10%]"
+        isMobile
+          ? "mx-auto"
+          : isLeft
+            ? "mr-auto ml-[5%] md:ml-[10%]"
+            : "ml-auto mr-[5%] md:mr-[10%]"
       }`}
       style={{
         marginTop: index === 0 ? 0 : `${60 + (index % 3) * 20}px`,
       }}
-      initial={{ opacity: 0, y: 30, x: isLeft ? -20 : 20 }}
+      initial={{ opacity: 0, y: 30, x: isMobile ? 0 : isLeft ? -20 : 20 }}
       animate={isInView ? { opacity: 1, y: 0, x: 0 } : {}}
       transition={{
         type: "spring",
@@ -140,14 +147,16 @@ export default function ProjectCard({ project, index, isLeft }: ProjectCardProps
         )}
       </div>
 
-      {/* Decorative border accent */}
-      <motion.div
-        className="absolute -left-4 top-0 w-px h-full origin-top"
-        style={{ backgroundColor: "rgba(0, 153, 255, 0.2)" }}
-        initial={{ scaleY: 0 }}
-        animate={isInView ? { scaleY: 1 } : {}}
-        transition={{ duration: 0.8, delay: 0.3 }}
-      />
+      {/* Decorative border accent (hidden on mobile where cards are centered) */}
+      {!isMobile && (
+        <motion.div
+          className="absolute -left-4 top-0 w-px h-full origin-top"
+          style={{ backgroundColor: "rgba(0, 153, 255, 0.2)" }}
+          initial={{ scaleY: 0 }}
+          animate={isInView ? { scaleY: 1 } : {}}
+          transition={{ duration: 0.8, delay: 0.3 }}
+        />
+      )}
     </motion.div>
   );
 }

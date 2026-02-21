@@ -17,7 +17,7 @@ export default function AboutSection() {
     >
       <div className="w-full px-6 md:px-12 lg:px-20">
         {/* Content positioned right-of-center per §2.2 */}
-        <div className="ml-auto mr-[5%] md:mr-[10%] max-w-[520px] content-panel">
+        <div className="mx-auto md:ml-auto md:mr-[10%] max-w-[520px] content-panel">
           {/* Section marker */}
           <motion.div
             className="flex items-center gap-3 mb-10"

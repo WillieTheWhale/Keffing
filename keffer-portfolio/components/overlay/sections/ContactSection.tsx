@@ -16,7 +16,7 @@ export default function ContactSection() {
       aria-label="Contact"
     >
       <div className="w-full px-6 md:px-12 lg:px-20">
-        <div className="ml-auto mr-[5%] md:mr-[15%] max-w-[480px] content-panel">
+        <div className="mx-auto md:ml-auto md:mr-[15%] max-w-[480px] content-panel">
           {/* Section header */}
           <motion.div
             className="flex items-center gap-3 mb-6"

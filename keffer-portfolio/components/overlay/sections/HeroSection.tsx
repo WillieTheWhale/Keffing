@@ -12,7 +12,7 @@ export default function HeroSection() {
     >
       <div className="w-full px-6 md:px-12 lg:px-20">
         {/* Name - positioned right-of-center per §2.2 */}
-        <div className="ml-auto mr-[10%] md:mr-[15%] max-w-[600px] content-panel-hero">
+        <div className="mx-auto md:ml-auto md:mr-[15%] max-w-[600px] content-panel-hero">
           <motion.h1
             className="font-sans font-semibold tracking-tight leading-none"
             style={{

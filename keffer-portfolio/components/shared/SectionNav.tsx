@@ -27,14 +27,14 @@ const SectionNav = memo(function SectionNav() {
 
   return (
     <nav
-      className="fixed right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3 z-[25]"
+      className="fixed right-1 md:right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-0 z-[25]"
       aria-label="Section navigation"
     >
       {sectionList.map((section, i) => (
         <button
           key={section.id}
           onClick={() => handleClick(section.id)}
-          className="group relative flex items-center"
+          className="group relative flex items-center justify-center w-11 h-11"
           aria-label={`Go to ${section.id}`}
           aria-current={i === activeIdx ? "true" : undefined}
         >
@@ -46,7 +46,7 @@ const SectionNav = memo(function SectionNav() {
             }}
           />
           <span
-            className="absolute right-5 font-mono text-[9px] tracking-[0.15em] opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap"
+            className="absolute right-12 font-mono text-[11px] tracking-[0.15em] opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap"
             style={{ color: "#333333" }}
           >
             {section.label}
