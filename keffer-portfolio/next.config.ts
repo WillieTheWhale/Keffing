@@ -2,7 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "export",
-  basePath: process.env.GITHUB_ACTIONS ? "/Keffing" : "",
   transpilePackages: ["three", "@react-three/drei"],
   images: {
     formats: ["image/webp", "image/avif"],
