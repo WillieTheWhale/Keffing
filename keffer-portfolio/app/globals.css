@@ -1,0 +1,195 @@
+@import "tailwindcss";
+
+/* ===========================
+   DESIGN TOKEN SPECIFICATION
+   System Design §8, §9
+   =========================== */
+
+:root {
+  /* Color Palette (§2.1) */
+  --bg-primary: #FFFFFF;
+  --fg-primary: #1A1A1A;
+  --fg-black: #000000;
+  --accent-cyan: #0099FF;
+  --ui-ghost: #CCCCCC;
+  --ui-dark: #333333;
+
+  /* Spacing Scale (§8.1) - 4px base with φ jumps */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 40px;
+  --space-7: 64px;
+  --space-8: 104px;
+  --space-9: 168px;
+
+  /* Motion Tokens (§8.3) */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-quint: cubic-bezier(0.83, 0, 0.17, 1);
+  --duration-fast: 150ms;
+  --duration-transition: 300ms;
+
+  /* Font families (set by next/font) */
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains);
+}
+
+@theme inline {
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--fg-primary);
+  --color-cyan: var(--accent-cyan);
+  --color-ghost: var(--ui-ghost);
+  --color-dark: var(--ui-dark);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains);
+}
+
+/* ===========================
+   BASE STYLES
+   =========================== */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: auto; /* Lenis handles smooth scroll */
+  zoom: 0.8;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-primary);
+  color: var(--fg-primary);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* ===========================
+   TYPE SCALE (§9.2)
+   Modular scale ratio 1.25
+   =========================== */
+
+.text-xs { font-size: 0.6875rem; line-height: 1.45; }    /* 11px */
+.text-sm { font-size: 0.8125rem; line-height: 1.45; }    /* 13px */
+.text-base { font-size: 1rem; line-height: 1.6; }         /* 16px */
+.text-lg { font-size: 1.25rem; line-height: 1.5; }        /* 20px */
+.text-xl { font-size: 1.5625rem; line-height: 1.3; }      /* 25px */
+.text-2xl { font-size: 1.9375rem; line-height: 1.2; }     /* 31px */
+.text-3xl { font-size: 2.4375rem; line-height: 1.1; }     /* 39px */
+.text-display { font-size: 3.0625rem; line-height: 1.0; } /* 49px */
+
+/* ===========================
+   ACCESSIBILITY (§15)
+   =========================== */
+
+/* Visible focus indicators styled with cyan */
+*:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+}
+
+/* Skip to content link */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent-cyan);
+  color: white;
+  padding: var(--space-2) var(--space-4);
+  z-index: 100;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  text-decoration: none;
+  border-radius: 0 0 4px 4px;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* Reduced motion preferences (§12.3) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ===========================
+   CANVAS LAYER STACK
+   =========================== */
+
+.canvas-layer {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.content-layer {
+  position: relative;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+/* Frosted glass panel for content readability against busy background */
+.content-panel {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 24px 28px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+/* Lighter panel variant for hero - more transparent */
+.content-panel-hero {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 20px 24px;
+}
+
+/* ===========================
+   LENIS SMOOTH SCROLL
+   =========================== */
+
+html.lenis, html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
+/* ===========================
+   SELECTION
+   =========================== */
+
+::selection {
+  background-color: rgba(0, 153, 255, 0.15);
+  color: var(--fg-black);
+}
