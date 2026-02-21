@@ -9,7 +9,6 @@ import ParticleDust from "@/components/overlay/glitch/ParticleDust";
 import FilmGrain from "@/components/overlay/glitch/FilmGrain";
 import AtmosphereLayer from "@/components/overlay/atmosphere/AtmosphereLayer";
 import SectionNav from "@/components/shared/SectionNav";
-import SeedTester from "@/components/shared/SeedTester";
 import HeroSection from "@/components/overlay/sections/HeroSection";
 import AboutSection from "@/components/overlay/sections/AboutSection";
 import ProjectsSection from "@/components/overlay/sections/ProjectsSection";
@@ -55,9 +54,6 @@ export default function Home() {
 
       {/* [z:25] Section navigation dots */}
       <SectionNav />
-
-      {/* Seed tester UI — remove after selecting final seed */}
-      <SeedTester />
 
       {/* [z:20] HTML content - scrollable sections */}
       <main id="main-content" className="content-layer">
