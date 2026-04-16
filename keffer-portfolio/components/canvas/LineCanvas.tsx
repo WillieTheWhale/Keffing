@@ -194,24 +194,70 @@ function edgeNoise(t: number, seed: number, side: number): number {
        + Math.sin(t * 22.7 + s * 2.07) * 0.15;
 }
 
-// ─── Chrome Stroke Renderer ─────────────────────────────────
+// ─── Brush Stroke Texture Loading ───────────────────────────
+
+let _strokeTextures: HTMLImageElement[] = [];
+let _strokeTexturesLoaded = false;
+
+function loadStrokeTextures(): Promise<void> {
+  if (_strokeTexturesLoaded) return Promise.resolve();
+  const paths = [
+    "/assets/textures/brush/stroke.png",
+    "/assets/textures/brush/stroke2.png",
+  ];
+  return new Promise((resolve) => {
+    let loaded = 0;
+    _strokeTextures = paths.map((src) => {
+      const img = new Image();
+      img.onload = img.onerror = () => { if (++loaded >= paths.length) { _strokeTexturesLoaded = true; resolve(); } };
+      img.src = src;
+      return img;
+    });
+  });
+}
+
+function getStrokeTexture(seed: number): HTMLImageElement | null {
+  if (!_strokeTexturesLoaded || _strokeTextures.length === 0) return null;
+  const idx = Math.floor(Math.abs(seed * 7.3) % _strokeTextures.length);
+  const img = _strokeTextures[idx];
+  return (img.complete && img.naturalWidth > 0) ? img : null;
+}
+
+// ─── Mesh-Warp Texture Mapping Along Curve ──────────────────
+//
+// Maps a full-length brush stroke texture along a bezier curve by
+// subdividing both the texture and curve into thin vertical slices.
+// Each slice is drawn as a transformed quad that follows the curve's
+// position, tangent direction, and width at that point.
+//
+// This makes the texture's bristle marks follow the stroke direction
+// because the texture is physically deformed to match the curve.
 
 /**
- * Draws a brush stroke with glassy chrome shading using a perpendicular
- * linear gradient — smooth dark edges → bright specular center → dark edges.
- * Creates a realistic chrome cylinder illusion without any texture assets.
- * Uses filled polygons from perpendicular normals along smooth Bezier paths.
+ * Maps a brush stroke texture along a bezier curve using affine-
+ * transformed triangle strips. For each pair of adjacent sample
+ * points, a quad is formed (top-left, top-right, bottom-right,
+ * bottom-left) and split into two triangles. Each triangle is drawn
+ * by computing the affine transform that maps the source texture
+ * triangle to the destination canvas triangle, then clipping and
+ * drawing. This produces smooth, continuous texture deformation
+ * that follows the curve — the bristle marks in the texture flow
+ * along the stroke direction naturally.
  */
-function drawChromeStroke(
+function drawTexturedStroke(
   ctx: CanvasRenderingContext2D,
   pts: Pt[],
   widthFn: (t: number) => number,
   seed: number,
+  opacity = 1.0,
 ) {
+  const tex = getStrokeTexture(seed);
+  if (!tex) return;
+
   const N = pts.length;
   if (N < 2) return;
 
-  // Precompute unit normals at each sample point
+  // Precompute normals
   const norms: Pt[] = [];
   for (let i = 0; i < N; i++) {
     let tx: number, ty: number;
@@ -222,7 +268,173 @@ function drawChromeStroke(
     norms.push({ x: -ty / len, y: tx / len });
   }
 
-  // Build and fill a polygon at given width fraction
+  const texW = tex.naturalWidth;
+  const texH = tex.naturalHeight;
+
+  // Use every sample point for maximum smoothness along the curve.
+  // Pre-build the top and bottom edge vertices of the stroke ribbon.
+  const top: Pt[] = [];
+  const bot: Pt[] = [];
+  for (let i = 0; i < N; i++) {
+    const t = i / (N - 1);
+    const hw = widthFn(t) / 2;
+    top.push({ x: pts[i].x + norms[i].x * hw, y: pts[i].y + norms[i].y * hw });
+    bot.push({ x: pts[i].x - norms[i].x * hw, y: pts[i].y - norms[i].y * hw });
+  }
+
+  ctx.save();
+  ctx.globalAlpha = opacity;
+
+  // Draw texture-mapped triangle strip.
+  // For each pair of adjacent points (i, i+1), we have a quad:
+  //   top[i] ---- top[i+1]
+  //     |            |
+  //   bot[i] ---- bot[i+1]
+  //
+  // Split into two triangles and affine-map the corresponding
+  // texture region into each triangle.
+
+  for (let i = 0; i < N - 1; i++) {
+    const t0 = i / (N - 1);
+    const t1 = (i + 1) / (N - 1);
+
+    // Source texture coordinates (x along texture, y is 0=top, texH=bottom)
+    const su0 = t0 * texW;
+    const su1 = t1 * texW;
+
+    // Destination quad corners
+    const dTL = top[i];
+    const dTR = top[i + 1];
+    const dBL = bot[i];
+    const dBR = bot[i + 1];
+
+    // Skip degenerate quads
+    const hw0 = widthFn(t0) / 2;
+    const hw1 = widthFn(t1) / 2;
+    if (hw0 < 0.2 && hw1 < 0.2) continue;
+
+    // Triangle 1: TL, TR, BL
+    // Source: (su0, 0), (su1, 0), (su0, texH)
+    // Dest:   dTL,       dTR,      dBL
+    drawTexturedTriangle(ctx, tex,
+      su0, 0,    su1, 0,    su0, texH,
+      dTL.x, dTL.y,  dTR.x, dTR.y,  dBL.x, dBL.y,
+    );
+
+    // Triangle 2: TR, BR, BL
+    // Source: (su1, 0), (su1, texH), (su0, texH)
+    // Dest:   dTR,       dBR,         dBL
+    drawTexturedTriangle(ctx, tex,
+      su1, 0,    su1, texH,    su0, texH,
+      dTR.x, dTR.y,  dBR.x, dBR.y,  dBL.x, dBL.y,
+    );
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Draws a single affine-textured triangle.
+ * Maps source triangle (s0,s1,s2) in the texture image to
+ * destination triangle (d0,d1,d2) on the canvas.
+ *
+ * Uses ctx.transform() (not setTransform) so it composes with
+ * the existing DPR scaling transform on the canvas.
+ */
+function drawTexturedTriangle(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  // Source triangle (texture coordinates)
+  sx0: number, sy0: number,
+  sx1: number, sy1: number,
+  sx2: number, sy2: number,
+  // Destination triangle (canvas coordinates)
+  dx0: number, dy0: number,
+  dx1: number, dy1: number,
+  dx2: number, dy2: number,
+) {
+  ctx.save();
+
+  // Clip to the destination triangle
+  ctx.beginPath();
+  ctx.moveTo(dx0, dy0);
+  ctx.lineTo(dx1, dy1);
+  ctx.lineTo(dx2, dy2);
+  ctx.closePath();
+  ctx.clip();
+
+  // Compute the affine transform that maps:
+  //   (sx0, sy0) -> (dx0, dy0)
+  //   (sx1, sy1) -> (dx1, dy1)
+  //   (sx2, sy2) -> (dx2, dy2)
+  //
+  // The transform is: [a b c d e f] where
+  //   destX = a * srcX + c * srcY + e
+  //   destY = b * srcX + d * srcY + f
+
+  const det = (sx0 - sx2) * (sy1 - sy2) - (sx1 - sx2) * (sy0 - sy2);
+  if (Math.abs(det) < 0.001) { ctx.restore(); return; }
+  const invDet = 1 / det;
+
+  const a = ((dx0 - dx2) * (sy1 - sy2) - (dx1 - dx2) * (sy0 - sy2)) * invDet;
+  const b = ((dy0 - dy2) * (sy1 - sy2) - (dy1 - dy2) * (sy0 - sy2)) * invDet;
+  const c = ((dx1 - dx2) * (sx0 - sx2) - (dx0 - dx2) * (sx1 - sx2)) * invDet;
+  const d = ((dy1 - dy2) * (sx0 - sx2) - (dy0 - dy2) * (sx1 - sx2)) * invDet;
+  const e = dx0 - a * sx0 - c * sy0;
+  const f = dy0 - b * sx0 - d * sy0;
+
+  // Use transform() which composes with the current DPR transform,
+  // NOT setTransform() which would replace it.
+  ctx.transform(a, b, c, d, e, f);
+  ctx.drawImage(img, 0, 0);
+  ctx.restore();
+}
+
+// ─── Chrome Stroke Renderer (Paint Brush) ───────────────────
+
+/**
+ * Draws a paint brush stroke by mesh-warping a real brush stroke
+ * texture image along the bezier curve path. The texture's bristle
+ * marks follow the stroke direction because the texture is physically
+ * deformed to match the curve. Falls back to original chrome rendering
+ * if textures haven't loaded yet.
+ */
+function drawChromeStroke(
+  ctx: CanvasRenderingContext2D,
+  pts: Pt[],
+  widthFn: (t: number) => number,
+  seed: number,
+) {
+  // Always render the fallback polygon first for base visibility
+  drawChromeStrokeFallback(ctx, pts, widthFn, seed);
+
+  // Then overlay the texture if available
+  const tex = getStrokeTexture(seed);
+  if (tex) {
+    drawTexturedStroke(ctx, pts, widthFn, seed, 1.0);
+  }
+}
+
+/** Original chrome renderer used as fallback before textures load. */
+function drawChromeStrokeFallback(
+  ctx: CanvasRenderingContext2D,
+  pts: Pt[],
+  widthFn: (t: number) => number,
+  seed: number,
+) {
+  const N = pts.length;
+  if (N < 2) return;
+
+  const norms: Pt[] = [];
+  for (let i = 0; i < N; i++) {
+    let tx: number, ty: number;
+    if (i === 0) { tx = pts[1].x - pts[0].x; ty = pts[1].y - pts[0].y; }
+    else if (i === N - 1) { tx = pts[N - 1].x - pts[N - 2].x; ty = pts[N - 1].y - pts[N - 2].y; }
+    else { tx = pts[i + 1].x - pts[i - 1].x; ty = pts[i + 1].y - pts[i - 1].y; }
+    const len = Math.sqrt(tx * tx + ty * ty) || 1;
+    norms.push({ x: -ty / len, y: tx / len });
+  }
+
   const fillPoly = (frac: number, fill: string | CanvasGradient) => {
     ctx.fillStyle = fill;
     ctx.beginPath();
@@ -240,135 +452,22 @@ function drawChromeStroke(
     }
     ctx.closePath();
     ctx.fill();
-    // Rounded end caps
-    const r0 = widthFn(0) * frac / 2;
-    const r1 = widthFn(1) * frac / 2;
-    if (r0 > 1.5) { ctx.beginPath(); ctx.arc(pts[0].x, pts[0].y, r0, 0, Math.PI * 2); ctx.fill(); }
-    if (r1 > 1.5) { ctx.beginPath(); ctx.arc(pts[N - 1].x, pts[N - 1].y, r1, 0, Math.PI * 2); ctx.fill(); }
   };
 
-  // === Perpendicular chrome gradient ===
-  // Weighted average of normals (center-heavy) for gradient axis direction
-  let avgNx = 0, avgNy = 0;
-  for (let i = 0; i < N; i++) {
-    const w = Math.sin((i / (N - 1)) * Math.PI); // Weight center of stroke
-    avgNx += norms[i].x * w;
-    avgNy += norms[i].y * w;
-  }
-  const avgLen = Math.sqrt(avgNx * avgNx + avgNy * avgNy) || 1;
-  avgNx /= avgLen;
-  avgNy /= avgLen;
-
-  // Gradient spans the full width at the widest point along the stroke
   let maxW = 0;
-  let maxIdx = 0;
   for (let i = 0; i < N; i++) {
     const w = widthFn(i / (N - 1));
-    if (w > maxW) { maxW = w; maxIdx = i; }
+    if (w > maxW) maxW = w;
   }
-  const cx = pts[maxIdx].x;
-  const cy = pts[maxIdx].y;
-  const extent = maxW * 0.55;
 
-  // Chrome cylinder gradient: asymmetric lighting (sky-biased specular peak)
-  // Fresnel edge brightening + ground-bounce secondary highlight
-  const shift = ((seed * 7.3) % 1) * 0.03 - 0.015; // ±1.5% offset variance
-  const peakShift = ((seed * 3.7) % 1) * 0.08 - 0.04; // ±0.04 peak position variance
-  const peak = 0.44 + peakShift; // specular peak biased toward light source (sky side)
-
-  // Per-stroke color temperature variation via seed
-  const tempT = ((seed * 5.1) % 1);
-  // Cool: #d8e4f8, Warm: #f0e8d8, Neutral: #e0e8f4
-  const specR = tempT < 0.33 ? 0xd8 : tempT < 0.66 ? 0xf0 : 0xe0;
-  const specG = tempT < 0.33 ? 0xe4 : tempT < 0.66 ? 0xe8 : 0xe8;
-  const specB = tempT < 0.33 ? 0xf8 : tempT < 0.66 ? 0xd8 : 0xf4;
-  const specColor = `rgb(${specR},${specG},${specB})`;
-  // Corresponding mid-tone
-  const midR = Math.round(specR * 0.6);
-  const midG = Math.round(specG * 0.66);
-  const midB = Math.round(specB * 0.78);
-  const midColor = `rgb(${midR},${midG},${midB})`;
-
-  const grad = ctx.createLinearGradient(
-    cx - avgNx * extent, cy - avgNy * extent,
-    cx + avgNx * extent, cy + avgNy * extent,
-  );
-  grad.addColorStop(0.00, "#0d1018");               // Fresnel edge brightening (dark blue-gray, not pure void)
-  grad.addColorStop(0.06 + shift, "#07080e");
-  grad.addColorStop(0.16 + shift, "#141824");
-  grad.addColorStop(0.27, "#2e3448");
-  grad.addColorStop(0.35, "#586880");
-  grad.addColorStop(Math.max(0.36, peak - 0.04), midColor); // approach specular — temp-varied
-  grad.addColorStop(peak, specColor);                        // specular peak — shifted sky-side, temp-varied
-  grad.addColorStop(Math.min(0.59, peak + 0.06), midColor);  // steeper falloff on ground side
-  grad.addColorStop(0.60, "#586880");
-  grad.addColorStop(0.70, "#2e3448");
-  grad.addColorStop(0.82 - shift, "#141824");
-  grad.addColorStop(0.86, "#1e2438");                 // ground-bounce secondary highlight
-  grad.addColorStop(0.92 - shift, "#07080e");
-  grad.addColorStop(1.00, "#0d1018");                 // Fresnel edge brightening
-
-  // Soft outer halo
-  fillPoly(1.25, "rgba(0,0,0,0.025)");
-
-  // Main chrome fill with perpendicular gradient
-  fillPoly(1.0, grad);
-
-  // Stroke-aligned environment reflection overlay (sky side = lighter, ground side = darker)
-  // Uses the stroke's perpendicular normal so angled strokes reflect environment differently
-  const envGrad = ctx.createLinearGradient(
-    cx - avgNx * extent, cy - avgNy * extent,
-    cx + avgNx * extent, cy + avgNy * extent,
-  );
-  // Determine which side faces "up" (sky) based on normal's Y component
-  const skyFacing = avgNy < 0 ? 0 : 1; // 0 = start side faces sky, 1 = end side faces sky
-  if (skyFacing === 0) {
-    envGrad.addColorStop(0, "rgba(170,190,220,0.07)");
-    envGrad.addColorStop(0.5, "rgba(0,0,0,0)");
-    envGrad.addColorStop(1, "rgba(0,0,0,0.05)");
-  } else {
-    envGrad.addColorStop(0, "rgba(0,0,0,0.05)");
-    envGrad.addColorStop(0.5, "rgba(0,0,0,0)");
-    envGrad.addColorStop(1, "rgba(170,190,220,0.07)");
-  }
-  fillPoly(0.92, envGrad);
-
-  // Sharp specular highlight line along center
-  fillPoly(0.05, "rgba(210,220,240,0.22)");
-
-  // Additive specular bloom — overexposed highlight for chrome intensity
-  ctx.globalCompositeOperation = "lighter";
-  fillPoly(0.12, "rgba(180,195,220,0.06)"); // wide soft bloom
-  fillPoly(0.04, "rgba(220,230,245,0.10)"); // narrow intense bloom
-  ctx.globalCompositeOperation = "source-over";
-
-  // Edge texture: thin rough outlines along both edges to break up smooth polygon boundary
-  ctx.strokeStyle = "rgba(5,8,20,0.10)";
-  ctx.lineWidth = maxW * 0.012 + 0.3;
-  ctx.lineCap = "round";
-  for (const side of [1, -1]) {
-    ctx.beginPath();
-    for (let i = 0; i < N; i++) {
-      const t = i / (N - 1);
-      const hw = widthFn(t) / 2;
-      const roughness = hw * 0.05;
-      const disp = roughness * edgeNoise(t * N, seed, side);
-      const x = pts[i].x + norms[i].x * (hw * side + disp);
-      const y = pts[i].y + norms[i].y * (hw * side + disp);
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-  }
+  fillPoly(1.0, "rgba(5,7,14,0.9)");
 }
 
-// ─── Dark Chrome Stroke Renderer (sleek reflective black) ────
+// ─── Dark Chrome Stroke Renderer (Paint Brush) ──────────────
 
 /**
- * Draws a calligraphic stroke with dark chrome shading — near-black base
- * with subtle cool specular highlights. Same perpendicular-gradient polygon
- * technique as drawChromeStroke but dramatically darker palette.
- * For black strokes: obsidian/black chrome look.
- * For cyan strokes: deep saturated cyan chrome.
+ * Draws a bold calligraphic paint brush stroke using mesh-warped texture.
+ * For cyan strokes: falls back to original rendering (texture is black only).
  */
 function drawDarkChromeStroke(
   ctx: CanvasRenderingContext2D,
@@ -377,12 +476,12 @@ function drawDarkChromeStroke(
   seed: number,
   rgb: [number, number, number] = [0, 0, 0],
 ) {
+  const isCyan = rgb[2] > 200;
+
+  // Always draw base polygon first for guaranteed visibility
   const N = pts.length;
   if (N < 2) return;
 
-  const isCyan = rgb[2] > 200;
-
-  // Precompute unit normals
   const norms: Pt[] = [];
   for (let i = 0; i < N; i++) {
     let tx: number, ty: number;
@@ -393,137 +492,35 @@ function drawDarkChromeStroke(
     norms.push({ x: -ty / len, y: tx / len });
   }
 
-  // Polygon builder with very subtle organic edge displacement
-  const fillPoly = (frac: number, fill: string | CanvasGradient, roughness = 0.025) => {
+  const fillPoly = (frac: number, fill: string) => {
     ctx.fillStyle = fill;
     ctx.beginPath();
     for (let i = 0; i < N; i++) {
       const t = i / (N - 1);
       const hw = widthFn(t) * frac / 2;
-      const disp = hw * roughness * edgeNoise(t * N, seed, 0);
-      const x = pts[i].x + norms[i].x * (hw + disp);
-      const y = pts[i].y + norms[i].y * (hw + disp);
+      const x = pts[i].x + norms[i].x * hw;
+      const y = pts[i].y + norms[i].y * hw;
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     for (let i = N - 1; i >= 0; i--) {
       const t = i / (N - 1);
       const hw = widthFn(t) * frac / 2;
-      const disp = hw * roughness * edgeNoise(t * N, seed, 1);
-      ctx.lineTo(pts[i].x - norms[i].x * (hw + disp), pts[i].y - norms[i].y * (hw + disp));
+      ctx.lineTo(pts[i].x - norms[i].x * hw, pts[i].y - norms[i].y * hw);
     }
     ctx.closePath();
     ctx.fill();
-    // Rounded end caps
-    const r0 = widthFn(0) * frac / 2;
-    const r1 = widthFn(1) * frac / 2;
-    if (r0 > 1.5) { ctx.beginPath(); ctx.arc(pts[0].x, pts[0].y, r0, 0, Math.PI * 2); ctx.fill(); }
-    if (r1 > 1.5) { ctx.beginPath(); ctx.arc(pts[N - 1].x, pts[N - 1].y, r1, 0, Math.PI * 2); ctx.fill(); }
   };
 
-  // === Perpendicular dark chrome gradient ===
-  let avgNx = 0, avgNy = 0;
-  for (let i = 0; i < N; i++) {
-    const w = Math.sin((i / (N - 1)) * Math.PI);
-    avgNx += norms[i].x * w;
-    avgNy += norms[i].y * w;
-  }
-  const avgLen = Math.sqrt(avgNx * avgNx + avgNy * avgNy) || 1;
-  avgNx /= avgLen;
-  avgNy /= avgLen;
-
-  let maxW = 0, maxIdx = 0;
-  for (let i = 0; i < N; i++) {
-    const w = widthFn(i / (N - 1));
-    if (w > maxW) { maxW = w; maxIdx = i; }
-  }
-  const cx = pts[maxIdx].x;
-  const cy = pts[maxIdx].y;
-  const extent = maxW * 0.55;
-
-  const shift = ((seed * 7.3) % 1) * 0.03 - 0.015;
-  const peak = 0.44 + ((seed * 3.7) % 1) * 0.08 - 0.04;
-
-  const grad = ctx.createLinearGradient(
-    cx - avgNx * extent, cy - avgNy * extent,
-    cx + avgNx * extent, cy + avgNy * extent,
-  );
-
   if (isCyan) {
-    // Deep saturated cyan chrome
-    grad.addColorStop(0.00, "#020810");
-    grad.addColorStop(0.08 + shift, "#011018");
-    grad.addColorStop(0.20, "#03192e");
-    grad.addColorStop(0.32, "#0a3858");
-    grad.addColorStop(Math.max(0.36, peak - 0.04), "#1a6890");
-    grad.addColorStop(peak, "#2a99cc");               // cyan specular peak
-    grad.addColorStop(Math.min(0.58, peak + 0.06), "#1a6890");
-    grad.addColorStop(0.65, "#0a3858");
-    grad.addColorStop(0.78, "#03192e");
-    grad.addColorStop(0.88, "#041828");               // subtle secondary
-    grad.addColorStop(0.94 - shift, "#011018");
-    grad.addColorStop(1.00, "#020810");
+    fillPoly(1.0, "rgba(0,80,140,0.85)");
   } else {
-    // Obsidian / black chrome — near-black with visible cool specular
-    grad.addColorStop(0.00, "#060810");
-    grad.addColorStop(0.07 + shift, "#030406");
-    grad.addColorStop(0.16, "#080c14");
-    grad.addColorStop(0.26, "#121820");
-    grad.addColorStop(0.34, "#1e2838");
-    grad.addColorStop(Math.max(0.37, peak - 0.04), "#2e3c54");
-    grad.addColorStop(peak, "#4a6480");               // specular peak — polished dark metal
-    grad.addColorStop(Math.min(0.57, peak + 0.06), "#2e3c54");
-    grad.addColorStop(0.64, "#1e2838");
-    grad.addColorStop(0.73, "#121820");
-    grad.addColorStop(0.82, "#080c14");
-    grad.addColorStop(0.87, "#101828");               // ground-bounce secondary
-    grad.addColorStop(0.93 - shift, "#030406");
-    grad.addColorStop(1.00, "#060810");
+    fillPoly(1.0, "rgba(5,7,14,0.92)");
   }
 
-  // Soft outer halo
-  if (isCyan) {
-    fillPoly(1.18, "rgba(0,80,160,0.04)", 0.03);
-  } else {
-    fillPoly(1.18, "rgba(0,0,0,0.06)", 0.03);
+  // Overlay brush texture on black strokes if available
+  if (!isCyan && getStrokeTexture(seed)) {
+    drawTexturedStroke(ctx, pts, widthFn, seed, 0.9);
   }
-
-  // Main dark chrome fill
-  fillPoly(1.0, grad);
-
-  // Environment reflection overlay
-  const envGrad = ctx.createLinearGradient(
-    cx - avgNx * extent, cy - avgNy * extent,
-    cx + avgNx * extent, cy + avgNy * extent,
-  );
-  const skyFacing = avgNy < 0 ? 0 : 1;
-  if (skyFacing === 0) {
-    envGrad.addColorStop(0, isCyan ? "rgba(100,180,240,0.06)" : "rgba(80,100,130,0.05)");
-    envGrad.addColorStop(0.5, "rgba(0,0,0,0)");
-    envGrad.addColorStop(1, "rgba(0,0,0,0.03)");
-  } else {
-    envGrad.addColorStop(0, "rgba(0,0,0,0.03)");
-    envGrad.addColorStop(0.5, "rgba(0,0,0,0)");
-    envGrad.addColorStop(1, isCyan ? "rgba(100,180,240,0.06)" : "rgba(80,100,130,0.05)");
-  }
-  fillPoly(0.90, envGrad, 0.015);
-
-  // Thin specular highlight line
-  if (isCyan) {
-    fillPoly(0.06, "rgba(120,200,255,0.18)", 0);
-  } else {
-    fillPoly(0.06, "rgba(150,165,195,0.16)", 0);
-  }
-
-  // Additive specular bloom
-  ctx.globalCompositeOperation = "lighter";
-  if (isCyan) {
-    fillPoly(0.14, "rgba(0,120,200,0.05)", 0);
-    fillPoly(0.04, "rgba(80,180,240,0.08)", 0);
-  } else {
-    fillPoly(0.14, "rgba(70,85,110,0.05)", 0);
-    fillPoly(0.04, "rgba(110,125,155,0.08)", 0);
-  }
-  ctx.globalCompositeOperation = "source-over";
 }
 
 // ─── Tapering Line Renderers ────────────────────────────────
@@ -667,7 +664,10 @@ function drawWhipStroke(ctx: CanvasRenderingContext2D, pts: Pt[], maxWidth: numb
   const N = pts.length;
   if (N < 2) return;
 
-  // Compute unit normals
+  const localSeed = maxWidth * 73.1 + opacity * 137.3 + pts[0].x * 0.01;
+  const widthFn = (t: number) => maxWidth * Math.sin(t * Math.PI);
+
+  // Always draw base polygon first
   const norms: Pt[] = [];
   for (let i = 0; i < N; i++) {
     let tx: number, ty: number;
@@ -678,7 +678,6 @@ function drawWhipStroke(ctx: CanvasRenderingContext2D, pts: Pt[], maxWidth: numb
     norms.push({ x: -ty / len, y: tx / len });
   }
 
-  // Sinusoidal taper: thin at ends, full at center
   ctx.fillStyle = `rgba(0,0,0,${opacity})`;
   ctx.beginPath();
   for (let i = 0; i < N; i++) {
@@ -695,6 +694,11 @@ function drawWhipStroke(ctx: CanvasRenderingContext2D, pts: Pt[], maxWidth: numb
   }
   ctx.closePath();
   ctx.fill();
+
+  // Overlay brush texture on wider whips
+  if (maxWidth > 4 && getStrokeTexture(localSeed)) {
+    drawTexturedStroke(ctx, pts, widthFn, localSeed, opacity * 0.7);
+  }
 }
 
 // ─── Scene Generation ───────────────────────────────────────
@@ -1271,6 +1275,11 @@ const LineCanvas = memo(function LineCanvas() {
     const glow = glowRef.current;
     const container = containerRef.current;
     if (!main || !glow || !container) return;
+
+    // Load brush stroke textures; re-render when ready
+    loadStrokeTextures().then(() => {
+      if (rawRef.current && dimsRef.current) renderAll(window.scrollY);
+    });
 
     const dpr = deviceTier === "mobile" ? 1 : Math.min(window.devicePixelRatio, 2);
     // CSS zoom on <html> shrinks rendered canvas but window.innerWidth
