@@ -66,7 +66,7 @@ export default function AboutSection() {
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ type: "spring", ...springs.gentle, delay: 0.3 }}
           >
-            William is a sophomore pursuing a BS in Computer Science and
+            William is a Junior pursuing a BS in Computer Science and
             Mathematics at UNC Chapel Hill. His research includes adversarial
             machine learning, vision-language model security, and
             satellite-economic analysis. His primary interests now are machine

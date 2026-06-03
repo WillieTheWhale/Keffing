@@ -21,7 +21,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "William Keffer — Computer Science × Mathematics × Machine Learning",
   description:
-    "Portfolio of William Keffer. Sophomore at UNC Chapel Hill pursuing Computer Science and Mathematics. Research in adversarial machine learning, VLM security, and satellite-economic analysis.",
+    "Portfolio of William Keffer. Junior at UNC Chapel Hill pursuing Computer Science and Mathematics. Research in adversarial machine learning, VLM security, and satellite-economic analysis.",
   openGraph: {
     title: "William Keffer — Portfolio",
     description:
