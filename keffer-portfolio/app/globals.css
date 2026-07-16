@@ -6,11 +6,14 @@
    =========================== */
 
 :root {
-  /* Color Palette (§2.1) */
+  /* Color Palette (§2.1 + roadmap W2) */
   --bg-primary: #FFFFFF;
   --fg-primary: #1A1A1A;
   --fg-black: #000000;
   --accent-cyan: #0099FF;
+  /* Signal red: punctuation only (~1% frequency) — active states, the world portal.
+     Never used decoratively. */
+  --signal-red: #FF3300;
   --ui-ghost: #CCCCCC;
   --ui-dark: #333333;
 
@@ -25,25 +28,36 @@
   --space-8: 104px;
   --space-9: 168px;
 
-  /* Motion Tokens (§8.3) */
+  /* Motion Tokens (§8.3 + roadmap W2 motion spec)
+     One easing family: reveals use --ease-reveal, transitions use --ease-tune.
+     Ambient motion is slow and constant; interaction motion is fast and rare. */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out-quint: cubic-bezier(0.83, 0, 0.17, 1);
+  --ease-reveal: var(--ease-out-expo);
+  --ease-tune: var(--ease-in-out-quint);
   --duration-fast: 150ms;
   --duration-transition: 300ms;
+  --duration-reveal: 700ms;
+  --duration-tune: 900ms;
 
   /* Font families (set by next/font) */
   --font-sans: var(--font-inter);
   --font-mono: var(--font-jetbrains);
+  --font-display: var(--font-archivo);
+  --font-accent: var(--font-shippori);
 }
 
 @theme inline {
   --color-background: var(--bg-primary);
   --color-foreground: var(--fg-primary);
   --color-cyan: var(--accent-cyan);
+  --color-signal: var(--signal-red);
   --color-ghost: var(--ui-ghost);
   --color-dark: var(--ui-dark);
   --font-sans: var(--font-inter);
   --font-mono: var(--font-jetbrains);
+  --font-display: var(--font-archivo);
+  --font-accent: var(--font-shippori);
 }
 
 /* ===========================
@@ -56,15 +70,11 @@
 
 html {
   scroll-behavior: auto; /* Lenis handles smooth scroll */
-  zoom: 1.0;
-}
-
-@media (min-width: 640px) {
-  html { zoom: 0.9; }
-}
-
-@media (min-width: 1024px) {
-  html { zoom: 0.8; }
+  /* Fluid root scale replaces the old html{zoom} hack (zoom broke rendering
+     consistency across Safari/Firefox and distorted canvas/vh math).
+     The old zoom made desktop 20% smaller; this negative-slope clamp keeps
+     rem-based type at a similar optical size: 16px on mobile → ~13px wide. */
+  font-size: clamp(13px, 18px - 0.4vw, 16px);
 }
 
 body {
@@ -91,6 +101,85 @@ body {
 .text-2xl { font-size: 1.9375rem; line-height: 1.2; }     /* 31px */
 .text-3xl { font-size: 2.4375rem; line-height: 1.1; }     /* 39px */
 .text-display { font-size: 3.0625rem; line-height: 1.0; } /* 49px */
+
+/* ===========================
+   ENTRY SEQUENCE (roadmap W3)
+   =========================== */
+
+.entry-hairline {
+  animation: entry-hairline-draw 900ms var(--ease-reveal) forwards;
+}
+
+@keyframes entry-hairline-draw {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+.entry-vline {
+  animation: entry-vline-draw 500ms var(--ease-reveal) forwards;
+}
+
+@keyframes entry-vline-draw {
+  from { height: 0; }
+  to { height: 100%; }
+}
+
+.entry-corner {
+  opacity: 0;
+  animation: entry-corner-in 400ms var(--ease-reveal) 250ms forwards;
+}
+
+@keyframes entry-corner-in {
+  from { opacity: 0; transform: scale(1.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entry-hairline, .entry-vline, .entry-corner { animation: none; opacity: 1; width: 100%; }
+}
+
+/* ===========================
+   PROJECT CARDS (roadmap W8)
+   =========================== */
+
+.project-card .project-card-media img {
+  transform: scale(1.05) translateY(2px);
+  filter: saturate(0.8);
+  transition: transform 500ms var(--ease-reveal), filter 300ms linear;
+}
+
+.project-card:hover .project-card-media img {
+  transform: scale(1) translateY(0);
+  filter: saturate(1.1);
+}
+
+.project-card:hover .project-card-accent {
+  background-color: rgba(0, 153, 255, 0.7) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .project-card .project-card-media img { transition: none; transform: none; }
+}
+
+/* ===========================
+   INDEX MENU (roadmap W4)
+   =========================== */
+
+.index-entry .index-entry-label {
+  transition: color 150ms linear, text-shadow 150ms linear, letter-spacing 300ms var(--ease-reveal);
+}
+
+.index-entry:hover .index-entry-label,
+.index-entry:focus-visible .index-entry-label {
+  color: #0099ff;
+  /* de-tune: slight RGB split in the palette's own voice */
+  text-shadow: 3px 0 rgba(255, 255, 255, 0.85), -3px 0 rgba(0, 153, 255, 0.55);
+  letter-spacing: 0.01em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .index-entry .index-entry-label { transition: none; }
+}
 
 /* ===========================
    ACCESSIBILITY (§15)

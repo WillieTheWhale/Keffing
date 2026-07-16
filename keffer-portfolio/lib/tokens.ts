@@ -6,6 +6,8 @@ export const colors = {
   fgPrimary: "#1A1A1A",
   fgBlack: "#000000",
   accentCyan: "#0099FF",
+  /** Punctuation only (~1% frequency): active states, the world portal. */
+  signalRed: "#FF3300",
   uiGhost: "#CCCCCC",
   uiDark: "#333333",
 } as const;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useEffect, useRef, memo } from "react";
+import { useMounted } from "@/hooks/useMounted";
 import { useStore } from "@/lib/store";
 import { mulberry32 } from "@/lib/generative";
 import { PHI_INV } from "@/lib/tokens";
@@ -25,6 +26,7 @@ interface Particle {
 }
 
 const ParticleDust = memo(function ParticleDust() {
+  const mounted = useMounted();
   const deviceTier = useStore((s) => s.deviceTier);
   const reducedMotion = useStore((s) => s.reducedMotion);
   const seed = useStore((s) => s.seed);
@@ -97,11 +99,13 @@ const ParticleDust = memo(function ParticleDust() {
 
   if (reducedMotion) return null;
 
+  if (!mounted) return null;
+
   return (
     <div
       ref={containerRef}
       className="fixed inset-0 pointer-events-none overflow-hidden"
-      style={{ zIndex: 4 }}
+      style={{ zIndex: 4, opacity: "var(--density-dust, 1)" }}
       aria-hidden="true"
     >
       <style dangerouslySetInnerHTML={{ __html: styleContent }} />

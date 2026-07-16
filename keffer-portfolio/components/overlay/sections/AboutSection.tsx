@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import { springs } from "@/lib/tokens";
+import SectionTitle from "@/components/shared/SectionTitle";
 
 export default function AboutSection() {
   const ref = useRef<HTMLElement>(null);
@@ -16,45 +17,9 @@ export default function AboutSection() {
       aria-label="About"
     >
       <div className="w-full px-6 md:px-12 lg:px-20">
+        <SectionTitle num="02" eyebrow="About" title="BIO" inView={isInView} />
         {/* Content positioned right-of-center per §2.2 */}
         <div className="mx-auto md:ml-auto md:mr-[10%] max-w-[520px] content-panel">
-          {/* Section marker */}
-          <motion.div
-            className="flex items-center gap-3 mb-10"
-            initial={{ opacity: 0, x: -20 }}
-            animate={isInView ? { opacity: 1, x: 0 } : {}}
-            transition={{ type: "spring", ...springs.gentle }}
-          >
-            <span
-              className="font-mono text-[11px] tracking-[0.15em] uppercase"
-              style={{ color: "#0099FF" }}
-            >
-              02
-            </span>
-            <div className="h-px w-10" style={{ backgroundColor: "#0099FF" }} />
-            <span
-              className="font-mono text-[11px] tracking-[0.15em] uppercase"
-              style={{ color: "#333333" }}
-            >
-              About
-            </span>
-          </motion.div>
-
-          {/* Bio heading */}
-          <motion.h2
-            className="font-sans font-semibold mb-8"
-            style={{
-              fontSize: "clamp(25px, 3vw, 31px)",
-              lineHeight: 1.2,
-              color: "#000000",
-            }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={isInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ type: "spring", ...springs.gentle, delay: 0.15 }}
-          >
-            Bio
-          </motion.h2>
-
           <motion.p
             className="font-sans mb-6"
             style={{

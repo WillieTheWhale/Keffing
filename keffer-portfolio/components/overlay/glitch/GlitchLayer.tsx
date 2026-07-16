@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useMemo, memo } from "react";
+import { useMounted } from "@/hooks/useMounted";
 import { useStore } from "@/lib/store";
 import { mulberry32 } from "@/lib/generative";
 import { PHI_INV } from "@/lib/tokens";
@@ -96,6 +97,7 @@ function DotGridInner({ cols, rows, spacing }: { cols: number; rows: number; spa
 // ─── Main component ──────────────────────────────────────────
 
 const GlitchLayer = memo(function GlitchLayer() {
+  const mounted = useMounted();
   const reducedMotion = useStore((s) => s.reducedMotion);
   const deviceTier = useStore((s) => s.deviceTier);
   const seed = useStore((s) => s.seed);
@@ -240,11 +242,13 @@ const GlitchLayer = memo(function GlitchLayer() {
 
   if (reducedMotion) return null;
 
+  if (!mounted) return null;
+
   return (
     <div
       ref={containerRef}
       className="fixed inset-0 pointer-events-none overflow-hidden"
-      style={{ zIndex: 6 }}
+      style={{ zIndex: 6, opacity: "var(--density-glitch, 1)" }}
       aria-hidden="true"
     >
       {elements}

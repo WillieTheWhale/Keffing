@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SIGNAL/NOISE — Motion Spec (W2)</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#fff; color:#1A1A1A; font-family:"Helvetica Neue", Arial, sans-serif; width:1480px; padding:48px; }
+  .mono { font-family:"SF Mono", Menlo, monospace; }
+  h1 { font-size:40px; letter-spacing:-0.02em; margin-bottom:6px; }
+  .sub { font-family:Menlo, monospace; font-size:12px; letter-spacing:0.15em; color:#333; text-transform:uppercase; margin-bottom:36px; }
+  .panel { background:#050508; color:#d2dce8; padding:36px; margin-bottom:36px; }
+  .panel h2 { color:#fff; font-size:24px; margin-bottom:20px; }
+  .panel p { font-family:Menlo, monospace; font-size:14px; line-height:2.1; white-space:pre; }
+  .cyan { color:#0099FF; }
+  .red { color:#FF3300; }
+  h3 { font-size:20px; margin-bottom:16px; }
+  .map { display:flex; align-items:flex-end; gap:4px; height:220px; margin-bottom:8px; }
+  .band { display:flex; flex-direction:column; justify-content:flex-end; }
+  .bar { background:#0099FF; width:100%; }
+  .bar.k { background:#000; }
+  .lbl { font-family:Menlo, monospace; font-size:11px; letter-spacing:0.08em; margin-top:8px; color:#333; }
+  .note { font-family:Menlo, monospace; font-size:12px; color:#666; margin-top:12px; line-height:1.8; }
+</style>
+</head>
+<body>
+  <h1>MOTION — two laws, one easing family</h1>
+  <div class="sub">Signal / Noise · Week 2 spec · full catalog in Docs/motion-spec.md</div>
+
+  <div class="panel">
+    <h2>Laws &amp; tokens</h2>
+    <p>LAW 1            ambient motion is slow + constant · interaction motion is fast + rare
+LAW 2            everything scroll-driven is scrubbable — reverse scroll reverses motion
+<span class="cyan">--ease-reveal</span>    cubic-bezier(0.16, 1, 0.3, 1)     entrances · reveals · card assembly
+<span class="cyan">--ease-tune</span>      cubic-bezier(0.83, 0, 0.17, 1)    tuning transition · menu · routes
+linear           timecodes · tickers · grain — machine motion never eases
+durations        fast 150ms · transition 300ms · reveal 700ms · tune 900ms
+entry sequence   1.8–2.4s once per session, skippable on any input
+<span class="red">reduced-motion</span>   a DESIGNED calm editorial mode — crossfades only, zero kinetics</p>
+  </div>
+
+  <h3>Density choreography map — the background reacts to the section behind it</h3>
+  <div class="map">
+    <div class="band" style="width:18%"><div class="bar" style="height:200px"></div><div class="lbl">HERO · 100% · full burst (the “noise” thesis)</div></div>
+    <div class="band" style="width:17%"><div class="bar" style="height:30px"></div><div class="lbl">ABOUT · 15% · first silence</div></div>
+    <div class="band" style="width:35%"><div class="bar" style="height:110px"></div><div class="lbl">PROJECTS · 55% · structured, pulses per card</div></div>
+    <div class="band" style="width:18%"><div class="bar" style="height:60px"></div><div class="lbl">RESEARCH · 30% · asymmetric quiet</div></div>
+    <div class="band" style="width:8%"><div class="bar k" style="height:200px"></div><div class="lbl">CONTACT · 100%→5% + <span class="red">portal</span></div></div>
+  </div>
+  <div class="note">Band boundaries happen inside the tuning transition (~0.03 scroll width): implode → one beat of near-black → re-explode.
+Scrubbable both directions. Reduced motion: crossfade through white instead.</div>
+</body>
+</html>

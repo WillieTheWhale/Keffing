@@ -3,6 +3,7 @@
 import { useEffect, useCallback, useRef } from "react";
 import { useStore } from "@/lib/store";
 import { getSceneState } from "@/lib/choreography";
+import { applyDensityVars } from "@/lib/tuning";
 
 export function useScrollProgress() {
   const updateSceneFromScroll = useCallback(
@@ -17,6 +18,9 @@ export function useScrollProgress() {
         lineParams: state.lineParams,
         skyFragments: state.skyFragments,
       });
+      // Density choreography → CSS vars on <html>; overlay layers consume
+      // them as plain opacity (no React re-renders).
+      applyDensityVars(progress, useStore.getState().reducedMotion);
     },
     []
   );

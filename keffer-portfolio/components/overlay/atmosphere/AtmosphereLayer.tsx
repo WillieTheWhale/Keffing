@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useEffect, useRef, memo } from "react";
+import { useMounted } from "@/hooks/useMounted";
 import { useStore } from "@/lib/store";
 import { lyricsPool } from "@/content/lyrics";
 import { mulberry32, phiPosition } from "@/lib/generative";
@@ -49,6 +50,7 @@ function HighlightedText({ text, highlightWords }: { text: string; highlightWord
 }
 
 const AtmosphereLayer = memo(function AtmosphereLayer() {
+  const mounted = useMounted();
   const reducedMotion = useStore((s) => s.reducedMotion);
   const deviceTier = useStore((s) => s.deviceTier);
   const seed = useStore((s) => s.seed);
@@ -151,11 +153,13 @@ const AtmosphereLayer = memo(function AtmosphereLayer() {
     );
   }
 
+  if (!mounted) return null;
+
   return (
     <div
       ref={containerRef}
       className="fixed inset-0 pointer-events-none overflow-hidden"
-      style={{ zIndex: 15 }}
+      style={{ zIndex: 15, opacity: "var(--density-atmosphere, 1)" }}
       aria-hidden="true"
     >
       {/* Opacity-only fade-in. No transform in keyframes — that would
@@ -166,37 +170,44 @@ const AtmosphereLayer = memo(function AtmosphereLayer() {
           to { opacity: var(--atmo-op, 0.5); }
         }
       `}} />
-      {textBlocks.map((block) => (
-        <div
-          key={block.id}
-          className="absolute"
-          data-pf={block.parallaxFactor}
-          style={{
-            left: `${block.x}%`,
-            top: `${block.y}%`,
-            willChange: "transform",
-          }}
-        >
+      {textBlocks.map((block, bi) => {
+        // Every third block speaks in the accent voice (Shippori Mincho) —
+        // epigraphs that surface in the quiet sections (W5).
+        const accent = bi % 3 === 0;
+        return (
           <div
-            className="pointer-events-none select-none"
+            key={block.id}
+            className="absolute"
+            data-pf={block.parallaxFactor}
             style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "11px",
-              lineHeight: "2.0",
-              letterSpacing: "0.05em",
-              color: "#1A1A1A",
-              maxWidth: "300px",
-              textAlign: "left",
-              whiteSpace: "pre-line",
-              opacity: 0,
-              "--atmo-op": block.opacity,
-              animation: `atmo-fade 0.6s ease ${block.delay}s forwards`,
-            } as React.CSSProperties}
+              left: `${block.x}%`,
+              top: `${block.y}%`,
+              willChange: "transform",
+            }}
           >
-            <HighlightedText text={block.text} highlightWords={block.highlightWords} />
+            <div
+              className="pointer-events-none select-none"
+              style={{
+                fontFamily: accent
+                  ? "var(--font-accent), Georgia, serif"
+                  : "var(--font-mono)",
+                fontSize: accent ? "14px" : "11px",
+                lineHeight: accent ? "2.2" : "2.0",
+                letterSpacing: accent ? "0.12em" : "0.05em",
+                color: "#1A1A1A",
+                maxWidth: accent ? "340px" : "300px",
+                textAlign: "left",
+                whiteSpace: "pre-line",
+                opacity: 0,
+                "--atmo-op": block.opacity,
+                animation: `atmo-fade 0.6s ease ${block.delay}s forwards`,
+              } as React.CSSProperties}
+            >
+              <HighlightedText text={block.text} highlightWords={block.highlightWords} />
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 });

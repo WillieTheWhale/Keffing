@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useEffect, useRef, memo } from "react";
+import { useMounted } from "@/hooks/useMounted";
 import { useStore } from "@/lib/store";
 import { mulberry32 } from "@/lib/generative";
 import { PHI_INV } from "@/lib/tokens";
@@ -24,6 +25,7 @@ interface BlackRect {
 }
 
 const BlackRectangles = memo(function BlackRectangles() {
+  const mounted = useMounted();
   const deviceTier = useStore((s) => s.deviceTier);
   const reducedMotion = useStore((s) => s.reducedMotion);
   const seed = useStore((s) => s.seed);
@@ -104,11 +106,13 @@ const BlackRectangles = memo(function BlackRectangles() {
     return () => window.removeEventListener("scroll", onScroll);
   }, [reducedMotion]);
 
+  if (!mounted) return null;
+
   return (
     <div
       ref={containerRef}
       className="fixed inset-0 pointer-events-none overflow-hidden"
-      style={{ zIndex: 3 }}
+      style={{ zIndex: 3, opacity: "var(--density-rects, 1)" }}
       aria-hidden="true"
     >
       <style dangerouslySetInnerHTML={{ __html: `

@@ -2,8 +2,12 @@
 
 import { motion } from "framer-motion";
 import { springs } from "@/lib/tokens";
+import { useStore } from "@/lib/store";
+import KineticName from "./KineticName";
 
 export default function HeroSection() {
+  // Hero detonates only after the entry sequence clears (W3)
+  const entryDone = useStore((s) => s.entryDone);
   return (
     <section
       id="hero"
@@ -11,35 +15,23 @@ export default function HeroSection() {
       aria-label="Hero"
     >
       <div className="w-full px-6 md:px-12 lg:px-20">
-        {/* Name - positioned right-of-center per §2.2 */}
-        <div className="mx-auto md:ml-auto md:mr-[15%] max-w-[600px] content-panel-hero">
-          <motion.h1
-            className="font-sans font-semibold tracking-tight leading-none"
-            style={{
-              fontSize: "clamp(39px, 6vw, 49px)",
-              color: "#000000",
-            }}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              type: "spring",
-              ...springs.gentle,
-              delay: 0.3,
-            }}
-          >
-            William Keffer
-          </motion.h1>
+        {/* Name — kinetic deconstructed lockup, right-of-center per §2.2 (W5) */}
+        <div className="mx-auto md:ml-auto md:mr-[8%] max-w-[900px]">
+          <KineticName />
 
           {/* Tagline */}
           <motion.p
-            className="mt-4 font-sans font-normal"
+            className="mt-5 font-sans font-normal inline-block"
             style={{
-              fontSize: "clamp(16px, 2vw, 20px)",
+              fontSize: "clamp(15px, 1.6vw, 18px)",
               lineHeight: 1.5,
               color: "#1A1A1A",
+              backgroundColor: "rgba(255,255,255,0.78)",
+              backdropFilter: "blur(5px)",
+              padding: "6px 12px",
             }}
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            animate={entryDone ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
             transition={{
               type: "spring",
               ...springs.gentle,
@@ -53,7 +45,7 @@ export default function HeroSection() {
           <motion.div
             className="mt-8 flex items-center gap-3"
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            animate={entryDone ? { opacity: 1 } : { opacity: 0 }}
             transition={{ delay: 1.0, duration: 0.8 }}
           >
             <div
@@ -73,7 +65,7 @@ export default function HeroSection() {
         <motion.div
           className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
           initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 0.6, 0.6, 0.3] }}
+          animate={entryDone ? { opacity: [0, 0.6, 0.6, 0.3] } : { opacity: 0 }}
           transition={{
             duration: 3,
             repeat: Infinity,

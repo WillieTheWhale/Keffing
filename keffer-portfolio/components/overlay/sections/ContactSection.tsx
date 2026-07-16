@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import { springs } from "@/lib/tokens";
+import SectionTitle from "@/components/shared/SectionTitle";
 
 export default function ContactSection() {
   const ref = useRef<HTMLElement>(null);
@@ -16,43 +17,8 @@ export default function ContactSection() {
       aria-label="Contact"
     >
       <div className="w-full px-6 md:px-12 lg:px-20">
+        <SectionTitle num="06" eyebrow="Open channel" title="LET'S CONNECT" inView={isInView} />
         <div className="mx-auto md:ml-auto md:mr-[15%] max-w-[480px] content-panel">
-          {/* Section header */}
-          <motion.div
-            className="flex items-center gap-3 mb-6"
-            initial={{ opacity: 0, x: -20 }}
-            animate={isInView ? { opacity: 1, x: 0 } : {}}
-            transition={{ type: "spring", ...springs.gentle }}
-          >
-            <span
-              className="font-mono text-[11px] tracking-[0.15em] uppercase"
-              style={{ color: "#0099FF" }}
-            >
-              06
-            </span>
-            <div className="h-px w-10" style={{ backgroundColor: "#0099FF" }} />
-            <span
-              className="font-mono text-[11px] tracking-[0.15em] uppercase"
-              style={{ color: "#333333" }}
-            >
-              Contact
-            </span>
-          </motion.div>
-
-          <motion.h2
-            className="font-sans font-semibold mb-6"
-            style={{
-              fontSize: "clamp(25px, 3vw, 31px)",
-              lineHeight: 1.2,
-              color: "#000000",
-            }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={isInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ type: "spring", ...springs.gentle, delay: 0.15 }}
-          >
-            Let&apos;s connect
-          </motion.h2>
-
           <motion.p
             className="font-sans mb-10"
             style={{

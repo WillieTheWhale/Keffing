@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import { springs } from "@/lib/tokens";
 import { extracurriculars, Extracurricular } from "@/content/projects";
+import SectionTitle from "@/components/shared/SectionTitle";
 
 export default function ResearchSection() {
   const ref = useRef<HTMLElement>(null);
@@ -17,43 +18,8 @@ export default function ResearchSection() {
       aria-label="Extracurriculars"
     >
       <div className="w-full px-6 md:px-12 lg:px-20">
+        <SectionTitle num="05" eyebrow="Beyond the work" title="EXTRACURRICULARS" inView={isInView} small />
         <div className="mx-auto md:ml-auto md:mr-[10%] max-w-[560px] content-panel">
-          {/* Section header */}
-          <motion.div
-            className="flex items-center gap-3 mb-6"
-            initial={{ opacity: 0, x: -20 }}
-            animate={isInView ? { opacity: 1, x: 0 } : {}}
-            transition={{ type: "spring", ...springs.gentle }}
-          >
-            <span
-              className="font-mono text-[11px] tracking-[0.15em] uppercase"
-              style={{ color: "#0099FF" }}
-            >
-              05
-            </span>
-            <div className="h-px w-10" style={{ backgroundColor: "#0099FF" }} />
-            <span
-              className="font-mono text-[11px] tracking-[0.15em] uppercase"
-              style={{ color: "#333333" }}
-            >
-              Extracurriculars
-            </span>
-          </motion.div>
-
-          <motion.h2
-            className="font-sans font-semibold mb-12"
-            style={{
-              fontSize: "clamp(25px, 3vw, 31px)",
-              lineHeight: 1.2,
-              color: "#000000",
-            }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={isInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ type: "spring", ...springs.gentle, delay: 0.15 }}
-          >
-            Extracurriculars
-          </motion.h2>
-
           {/* Extracurricular entries */}
           <div className="space-y-10">
             {extracurriculars.map((entry, i) => (

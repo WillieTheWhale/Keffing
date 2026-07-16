@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useEffect, useRef, memo } from "react";
+import { useMounted } from "@/hooks/useMounted";
 import { useStore } from "@/lib/store";
 import { mulberry32 } from "@/lib/generative";
-import { PHI_INV } from "@/lib/tokens";
+import { generateFragments, CLIP_SHAPES } from "@/lib/fragments";
 
 /* ─── types ──────────────────────────────────────────────────────── */
 
@@ -46,119 +47,34 @@ interface FragmentAnim {
 
 /* ─── constants ──────────────────────────────────────────────────── */
 
-const SKY_PHOTOS = [
-  "/assets/sky/sky-1.jpg",
-  "/assets/sky/sky-2.jpg",
-  "/assets/sky/sky-3.jpg",
-  "/assets/sky/sky-4.jpg",
-  "/assets/sky/sky-5.jpg",
-  "/assets/sky/sky-6.jpg",
-  "/assets/sky/sky-7.jpg",
-  "/assets/sky/sky-8.jpg",
-  "/assets/sky/sky-9.jpg",
-  "/assets/sky/sky-10.jpg",
-  "/assets/sky/sky-11.jpg",
-  "/assets/sky/sky-12.jpg",
-  "/assets/sky/sky-13.jpg",
-  "/assets/sky/sky-14.jpg",
-  "/assets/sky/sky-15.jpg",
-  "/assets/sky/sky-16.jpg",
-];
-
-const CLIP_SHAPES = [
-  "inset(0)",
-  "polygon(5% 0%, 100% 0%, 95% 100%, 0% 100%)",
-  "inset(0 round 8px)",
-  "polygon(3% 0%, 97% 2%, 100% 98%, 0% 100%)",
-  "inset(0 round 12px)",
-  "polygon(0% 5%, 100% 0%, 98% 95%, 2% 100%)",
-];
-
-/**
- * Approximate max scroll in viewport-height units.
- * Page is ~6.8vh tall, so max scrollY ≈ 5.8 × vh.
- */
-const MAX_SCROLL_VH = 5.8;
-
 const TWO_PI = Math.PI * 2;
 
 /* ─── component ──────────────────────────────────────────────────── */
 
 const SkyFragmentsCSS = memo(function SkyFragmentsCSS() {
+  const mounted = useMounted();
   const deviceTier = useStore((s) => s.deviceTier);
   const reducedMotion = useStore((s) => s.reducedMotion);
   const seed = useStore((s) => s.seed);
   const containerRef = useRef<HTMLDivElement>(null);
 
   /* ── generate fragment layout data ──────────────────────────── */
-  const blocks = useMemo(() => {
-    const rng = mulberry32(seed + 555);
-    const count =
-      deviceTier === "mobile" ? 10 : deviceTier === "tablet" ? 18 : 28;
-    const sizeScale =
-      deviceTier === "mobile" ? 0.5 : deviceTier === "tablet" ? 0.75 : 1.0;
-
-    const result: SkyBlockData[] = [];
-
-    for (let i = 0; i < count; i++) {
-      /*
-       * Target scroll position: distribute fragments evenly across
-       * the full page depth using golden-ratio spacing for maximum
-       * uniformity with no clustering.
-       */
-      const targetScrollVH =
-        ((i * PHI_INV) % 1) * MAX_SCROLL_VH + (rng() - 0.5) * 0.6;
-
-      /*
-       * Parallax factor: fragments deeper in the page need higher
-       * factors to be pulled into view. Add randomness for variety.
-       */
-      const parallaxFactor = 0.06 + rng() * 0.42; // 0.06 – 0.48
-
-      /*
-       * Y position: calculated so this fragment is near viewport
-       * center when scrollY matches targetScrollVH.
-       *
-       * Formula: y% = targetScrollVH × parallaxFactor × 100 + viewportOffset
-       * viewportOffset is scattered 10–90% for x-axis variety.
-       */
-      const viewportOffset = 10 + rng() * 80; // 10–90% within viewport
-      const y = targetScrollVH * parallaxFactor * 100 + viewportOffset;
-
-      // Horizontal position: full width scatter
-      const x = 2 + rng() * 88; // 2–90%
-
-      // Size: mix of small, medium, large fragments (scaled by device tier)
-      const sizeRoll = rng();
-      let w: number;
-      if (sizeRoll < 0.3) {
-        w = (60 + rng() * 100) * sizeScale;        // small: 60–160px × scale
-      } else if (sizeRoll < 0.7) {
-        w = (120 + rng() * 160) * sizeScale;       // medium: 120–280px × scale
-      } else {
-        w = (250 + rng() * 200) * sizeScale;       // large: 250–450px × scale
-      }
-      const aspectRatio = 0.4 + rng() * 0.9; // 0.4–1.3
-      const h = w * aspectRatio;
-
-      const opacity = 0.45 + rng() * 0.45; // 0.45–0.90
-
-      result.push({
-        id: `sky-${i}`,
-        src: SKY_PHOTOS[Math.floor(rng() * SKY_PHOTOS.length)],
-        x,
-        y,
-        width: w,
-        height: h,
-        clipPath: CLIP_SHAPES[Math.floor(rng() * CLIP_SHAPES.length)],
-        parallaxFactor,
-        opacity,
-        zIndex: 2 + (i % 3), // slight z variation
-      });
-    }
-
-    return result;
-  }, [deviceTier, seed]);
+  const blocks = useMemo(
+    () =>
+      generateFragments(seed, deviceTier).map((f) => ({
+        id: f.id,
+        src: f.src,
+        x: f.x,
+        y: f.y,
+        width: f.width,
+        height: f.height,
+        clipPath: CLIP_SHAPES[f.clipIndex],
+        parallaxFactor: f.parallaxFactor,
+        opacity: f.opacity,
+        zIndex: f.zIndex,
+      })),
+    [deviceTier, seed]
+  );
 
   /* ── animation loop ────────────────────────────────────────── */
   useEffect(() => {
@@ -268,11 +184,18 @@ const SkyFragmentsCSS = memo(function SkyFragmentsCSS() {
   }, [blocks, reducedMotion, deviceTier]);
 
   /* ── render ─────────────────────────────────────────────────── */
+  if (!mounted) return null;
+
   return (
     <div
       ref={containerRef}
       className="fixed inset-0 pointer-events-none overflow-hidden"
-      style={{ zIndex: 2 }}
+      style={{
+        zIndex: 2,
+        opacity: "var(--density-fragments, 1)",
+        transform: "scale(calc(1 + var(--dive, 0) * 1.35))",
+        transformOrigin: "70% 30%",
+      }}
       aria-hidden="true"
     >
       {blocks.map((block) => (

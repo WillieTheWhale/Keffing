@@ -2,7 +2,6 @@
 
 import { create } from "zustand";
 import { SectionName } from "./tokens";
-import { getDailySeed } from "./generative";
 
 export interface SceneState {
   scrollProgress: number;
@@ -13,6 +12,10 @@ export interface SceneState {
   viewportSize: [number, number];
   deviceTier: "mobile" | "tablet" | "desktop" | "wide";
   reducedMotion: boolean;
+  /** True once the entry boot sequence has cleared (or was skipped). */
+  entryDone: boolean;
+  /** When set, pins the line-canvas density (case pages). Null = choreography. */
+  densityOverride: number | null;
   seed: number;
   lineParams: {
     count: number;
@@ -50,7 +53,12 @@ export const useStore = create<StoreState>((set) => ({
   viewportSize: [1920, 1080],
   deviceTier: "desktop",
   reducedMotion: false,
-  seed: getDailySeed(),
+  entryDone: false,
+  densityOverride: null,
+  // Fixed seed for SSR/hydration; the real daily seed is applied post-mount
+  // by LenisProvider (a date-derived seed at render time causes hydration
+  // mismatches whenever the server rendered on a different day).
+  seed: 20260214,
   lineParams: {
     count: 150,
     spread: 280,

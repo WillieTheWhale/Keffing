@@ -4,6 +4,9 @@ import { useRef, useEffect, useCallback, memo } from "react";
 import { useStore } from "@/lib/store";
 import { mulberry32 } from "@/lib/generative";
 import { PHI } from "@/lib/tokens";
+import { smoothedDensityRef, smoothedTuneRef } from "@/lib/tuning";
+import { diveRef } from "@/lib/scroll";
+import { ChromeTendrilRenderer, detectWebGL } from "./chromeTendrils";
 
 // ─── Constants ──────────────────────────────────────────────
 
@@ -14,9 +17,9 @@ const FOCAL_Y = 0.3;
 
 // ─── Types ──────────────────────────────────────────────────
 
-interface Pt { x: number; y: number }
+export interface Pt { x: number; y: number }
 
-interface RawBrush {
+export interface RawBrush {
   cp: [Pt, Pt, Pt, Pt];
   maxWidth: number;
   taperType: number;
@@ -73,7 +76,7 @@ interface RawThrough {
   width: number; opacity: number;
 }
 
-interface RawInk {
+export interface RawInk {
   cp: [Pt, Pt, Pt, Pt];
   maxWidth: number;
   widthFn: (t: number) => number;
@@ -133,14 +136,27 @@ function sampleQuadratic(p0: Pt, cp: Pt, p1: Pt, n: number): Pt[] {
   return pts;
 }
 
+// Tuning transition state (W4): set once per render pass, read by deform().
+// During the beat every point is pulled toward the focal point — the whole
+// composition implodes, then re-explodes on the other side of the boundary.
+// `.t` is sourced from lib/tuning.ts's smoothedTuneRef (velocity-aware,
+// temporally smoothed — see that module for why); `.fx/.fy` stay local
+// since they depend on this canvas's own pixel coordinate space.
+const _tune = { t: 0, fx: 0, fy: 0 };
+
 /** Gentle sinusoidal deformation driven by scroll position. */
 function deform(p: Pt, scrollY: number): Pt {
   const phase = p.x * 0.003 + p.y * 0.002;
   const s = scrollY * 0.0008;
-  return {
-    x: p.x + Math.sin(phase + s) * 12,
-    y: p.y + Math.cos(phase * 1.3 + s * 0.7) * 8,
-  };
+  let x = p.x + Math.sin(phase + s) * 12;
+  let y = p.y + Math.cos(phase * 1.3 + s * 0.7) * 8;
+  if (_tune.t > 0) {
+    // Eased pull: up to 82% of the way to the focal point at full beat.
+    const pull = 0.82 * _tune.t * _tune.t;
+    x = x + (_tune.fx - x) * pull;
+    y = y + (_tune.fy - y) * pull;
+  }
+  return { x, y };
 }
 
 function makeWidthFn(maxW: number, taper: number): (t: number) => number {
@@ -202,8 +218,8 @@ let _strokeTexturesLoaded = false;
 function loadStrokeTextures(): Promise<void> {
   if (_strokeTexturesLoaded) return Promise.resolve();
   const paths = [
-    "/assets/textures/brush/stroke.png",
-    "/assets/textures/brush/stroke2.png",
+    "/assets/textures/brush/stroke.webp",
+    "/assets/textures/brush/stroke2.webp",
   ];
   return new Promise((resolve) => {
     let loaded = 0;
@@ -1060,18 +1076,31 @@ function generateRawScene(
 
 // ─── Rendering ──────────────────────────────────────────────
 
-function renderMain(ctx: CanvasRenderingContext2D, raw: RawScene, scrollY: number, w: number, h: number) {
+// Density gating (roadmap W3): each class thins out at its own rate as the
+// choreography quiets the composition. Peripheral noise dies first; the
+// structural signal (brushes, cyan beams) persists longest. Element order is
+// stable, so the visible subset is stable — no flicker between frames.
+function gate<T>(arr: T[], density: number, exponent: number): T[] {
+  const d = Math.min(1, Math.max(0, Math.pow(density, exponent)));
+  if (d >= 1) return arr;
+  return arr.slice(0, Math.round(arr.length * d));
+}
+
+function renderMain(ctx: CanvasRenderingContext2D, raw: RawScene, scrollY: number, w: number, h: number, density = 1, chromeGLActive = false) {
   ctx.clearRect(0, 0, w, h);
 
+  // Global fade for the final decay toward zero density.
+  ctx.globalAlpha = density < 0.12 ? Math.max(0.08, density / 0.12) : 1;
+
   // 1. Background arcs (tapered)
-  for (const a of raw.arcs) {
+  for (const a of gate(raw.arcs, density, 1.0)) {
     const dp0 = deform(a.p0, scrollY), dcp = deform(a.cp, scrollY), dp1 = deform(a.p1, scrollY);
     const pts = sampleQuadratic(dp0, dcp, dp1, 16);
     drawTaperingCurve(ctx, pts, a.width, a.opacity, "170,170,170", 0.15);
   }
 
   // 2. Through lines (tapered structural lines crossing focal)
-  for (const t of raw.throughs) {
+  for (const t of gate(raw.throughs, density, 1.0)) {
     const dp0 = deform(t.p0, scrollY), dp1 = deform(t.p1, scrollY);
     if (t.cp) {
       const dcp = deform(t.cp, scrollY);
@@ -1083,11 +1112,11 @@ function renderMain(ctx: CanvasRenderingContext2D, raw: RawScene, scrollY: numbe
   }
 
   // 3. Hairlines + parallel bundles (tapered)
-  for (const l of raw.hairlines) {
+  for (const l of gate(raw.hairlines, density, 1.4)) {
     const dp0 = deform(l.p0, scrollY), dp1 = deform(l.p1, scrollY);
     drawTaperingLine(ctx, dp0, dp1, 0.5, l.opacity, l.gray ? "160,160,160" : "0,0,0");
   }
-  for (const bun of raw.bundles) {
+  for (const bun of gate(raw.bundles, density, 1.2)) {
     for (const ln of bun.lines) {
       const dp0 = deform(ln.p0, scrollY), dp1 = deform(ln.p1, scrollY);
       drawTaperingLine(ctx, dp0, dp1, bun.width, bun.opacity, "0,0,0", 0.18);
@@ -1096,7 +1125,7 @@ function renderMain(ctx: CanvasRenderingContext2D, raw: RawScene, scrollY: numbe
 
   // 4. Inner scratches (short chaotic marks near focal)
   ctx.lineCap = "round";
-  for (const s of raw.scratches) {
+  for (const s of gate(raw.scratches, density, 1.6)) {
     const dp0 = deform(s.p0, scrollY), dp1 = deform(s.p1, scrollY);
     ctx.strokeStyle = `rgba(0,0,0,${s.opacity})`;
     ctx.lineWidth = s.width;
@@ -1112,7 +1141,7 @@ function renderMain(ctx: CanvasRenderingContext2D, raw: RawScene, scrollY: numbe
 
   // 5. Tangle
   ctx.lineCap = "round"; ctx.lineJoin = "round";
-  for (const c of raw.tangles) {
+  for (const c of gate(raw.tangles, density, 1.3)) {
     const dPts = c.points.map(p => deform(p, scrollY));
     ctx.strokeStyle = `rgba(0,0,0,${c.opacity})`;
     ctx.lineWidth = c.width;
@@ -1120,34 +1149,40 @@ function renderMain(ctx: CanvasRenderingContext2D, raw: RawScene, scrollY: numbe
   }
 
   // 6. Whip lines (medium-weight tapered curves)
-  for (const wh of raw.whips) {
+  for (const wh of gate(raw.whips, density, 1.0)) {
     const dPts = wh.points.map(p => deform(p, scrollY));
     drawWhipStroke(ctx, dPts, wh.maxWidth, wh.opacity);
   }
 
-  // 7. Ink strokes (ultra-bold black calligraphic, behind chrome)
-  for (const ink of raw.inks) {
-    const dCp = ink.cp.map(p => deform(p, scrollY)) as [Pt, Pt, Pt, Pt];
-    const samples = samplePath(dCp, 50);
-    drawDarkChromeStroke(ctx, samples, ink.widthFn, ink.seed, ink.rgb);
-  }
+  // 7-9. Ink strokes, brush tangles, and hero/accent/peripheral chrome
+  // brushes — the "black tendrils". Owned by the WebGL matcap ribbon layer
+  // (ChromeTendrilRenderer) when available; this 2D path is the fallback
+  // for mobile / no-WebGL / reduced-motion, unchanged from before.
+  if (!chromeGLActive) {
+    // 7. Ink strokes (ultra-bold black calligraphic, behind chrome)
+    for (const ink of gate(raw.inks, density, 0.8)) {
+      const dCp = ink.cp.map(p => deform(p, scrollY)) as [Pt, Pt, Pt, Pt];
+      const samples = samplePath(dCp, 50);
+      drawDarkChromeStroke(ctx, samples, ink.widthFn, ink.seed, ink.rgb);
+    }
 
-  // 8. Brush tangles (calligraphic chrome strokes at center)
-  for (const bt of raw.brushTangles) {
-    const dCp = bt.cp.map(p => deform(p, scrollY)) as [Pt, Pt, Pt, Pt];
-    const samples = samplePath(dCp, 30);
-    drawChromeStroke(ctx, samples, bt.widthFn, bt.seed);
-  }
+    // 8. Brush tangles (calligraphic chrome strokes at center)
+    for (const bt of gate(raw.brushTangles, density, 1.5)) {
+      const dCp = bt.cp.map(p => deform(p, scrollY)) as [Pt, Pt, Pt, Pt];
+      const samples = samplePath(dCp, 30);
+      drawChromeStroke(ctx, samples, bt.widthFn, bt.seed);
+    }
 
-  // 9. Chrome brush strokes (hero + accent + peripheral)
-  for (const b of raw.brushes) {
-    const dCp = b.cp.map(p => deform(p, scrollY)) as [Pt, Pt, Pt, Pt];
-    const samples = samplePath(dCp, 60);
-    drawChromeStroke(ctx, samples, b.widthFn, b.seed);
+    // 9. Chrome brush strokes (hero + accent + peripheral)
+    for (const b of gate(raw.brushes, density, 0.7)) {
+      const dCp = b.cp.map(p => deform(p, scrollY)) as [Pt, Pt, Pt, Pt];
+      const samples = samplePath(dCp, 60);
+      drawChromeStroke(ctx, samples, b.widthFn, b.seed);
+    }
   }
 
   // 10. Ink splatter
-  for (const dot of raw.splatter) {
+  for (const dot of gate(raw.splatter, density, 1.5)) {
     const d = deform({ x: dot.x, y: dot.y }, scrollY);
     ctx.fillStyle = `rgba(0,0,0,${dot.opacity})`;
     ctx.beginPath(); ctx.arc(d.x, d.y, dot.r, 0, Math.PI * 2); ctx.fill();
@@ -1155,7 +1190,7 @@ function renderMain(ctx: CanvasRenderingContext2D, raw: RawScene, scrollY: numbe
 
   // 11. Accent marks
   ctx.lineCap = "round";
-  for (const a of raw.accents) {
+  for (const a of gate(raw.accents, density, 1.4)) {
     const dp0 = deform(a.p0, scrollY), dp1 = deform(a.p1, scrollY);
     ctx.strokeStyle = `rgba(0,0,0,${a.opacity})`;
     ctx.lineWidth = a.width;
@@ -1171,7 +1206,7 @@ function renderMain(ctx: CanvasRenderingContext2D, raw: RawScene, scrollY: numbe
 
   // 12. Cyan beam auras (soft wide glow, gradient-faded endpoints)
   ctx.lineCap = "round";
-  for (const b of raw.cyans) {
+  for (const b of gate(raw.cyans, density, 1.1)) {
     const dp0 = deform(b.p0, scrollY), dp1 = deform(b.p1, scrollY);
     const auraGrad = ctx.createLinearGradient(dp0.x, dp0.y, dp1.x, dp1.y);
     const auraOp = b.opacity * 0.2;
@@ -1188,7 +1223,7 @@ function renderMain(ctx: CanvasRenderingContext2D, raw: RawScene, scrollY: numbe
   }
 
   // 13. Thick cyan calligraphic strokes
-  for (const tc of raw.thickCyans) {
+  for (const tc of gate(raw.thickCyans, density, 1.0)) {
     const dCp = tc.cp.map(p => deform(p, scrollY)) as [Pt, Pt, Pt, Pt];
     const samples = samplePath(dCp, 40);
     drawDarkChromeStroke(ctx, samples, tc.widthFn, tc.seed, tc.rgb);
@@ -1196,7 +1231,7 @@ function renderMain(ctx: CanvasRenderingContext2D, raw: RawScene, scrollY: numbe
 
   // 14. Cyan beams (sharp core, gradient-faded endpoints)
   ctx.lineCap = "round";
-  for (const b of raw.cyans) {
+  for (const b of gate(raw.cyans, density, 1.1)) {
     const dp0 = deform(b.p0, scrollY), dp1 = deform(b.p1, scrollY);
     const coreGrad = ctx.createLinearGradient(dp0.x, dp0.y, dp1.x, dp1.y);
     coreGrad.addColorStop(0, `rgba(0,153,255,0)`);
@@ -1212,10 +1247,11 @@ function renderMain(ctx: CanvasRenderingContext2D, raw: RawScene, scrollY: numbe
   }
 }
 
-function renderGlow(ctx: CanvasRenderingContext2D, raw: RawScene, scrollY: number, w: number, h: number) {
+function renderGlow(ctx: CanvasRenderingContext2D, raw: RawScene, scrollY: number, w: number, h: number, density = 1) {
   ctx.clearRect(0, 0, w, h);
+  ctx.globalAlpha = density < 0.12 ? Math.max(0.08, density / 0.12) : 1;
   ctx.lineCap = "round";
-  for (const b of raw.cyans) {
+  for (const b of gate(raw.cyans, density, 1.1)) {
     const dp0 = deform(b.p0, scrollY), dp1 = deform(b.p1, scrollY);
     const glowGrad = ctx.createLinearGradient(dp0.x, dp0.y, dp1.x, dp1.y);
     glowGrad.addColorStop(0, `rgba(0,153,255,0)`);
@@ -1230,7 +1266,7 @@ function renderGlow(ctx: CanvasRenderingContext2D, raw: RawScene, scrollY: numbe
     ctx.stroke();
   }
   // Thick cyan strokes on glow canvas for blur halo
-  for (const tc of raw.thickCyans) {
+  for (const tc of gate(raw.thickCyans, density, 1.0)) {
     const dCp = tc.cp.map(p => deform(p, scrollY)) as [Pt, Pt, Pt, Pt];
     const samples = samplePath(dCp, 40);
     drawDarkChromeStroke(ctx, samples, tc.widthFn, tc.seed, tc.rgb);
@@ -1242,14 +1278,44 @@ function renderGlow(ctx: CanvasRenderingContext2D, raw: RawScene, scrollY: numbe
 const LineCanvas = memo(function LineCanvas() {
   const mainRef = useRef<HTMLCanvasElement>(null);
   const glowRef = useRef<HTMLCanvasElement>(null);
+  const tendrilCanvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rawRef = useRef<RawScene | null>(null);
-  const dimsRef = useRef({ w: 0, h: 0, vh: 0, dpr: 1 });
+  const dimsRef = useRef({ w: 0, h: 0, vh: 0, dpr: 1, maxScroll: 1 });
   const lastScrollRef = useRef(-1);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
+  // WebGL chrome-tendril layer (feedback pass, 2026-07-16): "black tendrils"
+  // get a real matcap chrome shader instead of a flat gradient, but only on
+  // capable devices — mobile / no-WebGL / reduced-motion keep the original
+  // 2D drawChromeStroke path untouched (renderMain's chromeGLActive gate).
+  const tendrilRendererRef = useRef<ChromeTendrilRenderer | null>(null);
+  const chromeGLActiveRef = useRef(false);
+  const settleRafRef = useRef(0);
+  const lastTuneSeenRef = useRef(0);
+
   const deviceTier = useStore((s) => s.deviceTier);
   const seed = useStore((s) => s.seed);
+  const renderAllRef = useRef<((scrollY: number) => void) | null>(null);
+
+  // Keeps redrawing for a brief window after the last scroll event so an
+  // in-flight tune/density smoothing animation (lib/tuning.ts) always
+  // finishes playing out, even if the user stops scrolling mid-transition.
+  const ensureSettleLoop = useCallback(() => {
+    if (settleRafRef.current) return;
+    const tick = () => {
+      renderAllRef.current?.(window.scrollY);
+      const t = smoothedTuneRef.current;
+      const active = Math.abs(t - lastTuneSeenRef.current) > 0.0005 || t > 0.002;
+      lastTuneSeenRef.current = t;
+      if (active) {
+        settleRafRef.current = requestAnimationFrame(tick);
+      } else {
+        settleRafRef.current = 0;
+      }
+    };
+    settleRafRef.current = requestAnimationFrame(tick);
+  }, []);
 
   // Render scene with scroll deformation (reads from refs, no React re-renders)
   const renderAll = useCallback((scrollY: number) => {
@@ -1260,14 +1326,42 @@ const LineCanvas = memo(function LineCanvas() {
     const glow = glowRef.current;
     if (!main || !glow) return;
 
+    // Density choreography: scroll progress → visual volume (roadmap W3).
+    // Case pages pin density via densityOverride (W8) and skip the tuning beat.
+    // Both density and tune are read from lib/tuning.ts's smoothed refs
+    // (velocity-aware temporal smoothing — see that module), NOT recomputed
+    // raw from progress here, so this canvas never pops out of sync with
+    // the CSS-var-driven overlay layers during a fast scroll.
+    const { densityOverride } = useStore.getState();
+    const density = densityOverride ?? smoothedDensityRef.current;
+    _tune.t = densityOverride != null ? 0 : smoothedTuneRef.current;
+    _tune.fx = FOCAL_X * dims.w;
+    _tune.fy = FOCAL_Y * dims.vh + dims.vh * OVERFLOW;
+
+    const chromeGLActive = chromeGLActiveRef.current;
+
     const mCtx = main.getContext("2d")!;
     mCtx.setTransform(dims.dpr, 0, 0, dims.dpr, 0, 0);
-    renderMain(mCtx, raw, scrollY, dims.w, dims.h);
+    renderMain(mCtx, raw, scrollY, dims.w, dims.h, density, chromeGLActive);
 
     const gCtx = glow.getContext("2d")!;
     gCtx.setTransform(dims.dpr, 0, 0, dims.dpr, 0, 0);
-    renderGlow(gCtx, raw, scrollY, dims.w, dims.h);
-  }, []);
+    renderGlow(gCtx, raw, scrollY, dims.w, dims.h, density);
+
+    // WebGL chrome tendrils — same focal point + scroll deform + tune pull
+    // as the 2D layers above, so they implode toward the same point.
+    if (chromeGLActive && tendrilRendererRef.current) {
+      const globalAlpha = density < 0.12 ? Math.max(0.08, density / 0.12) : 1;
+      tendrilRendererRef.current.render(scrollY, _tune.fx, _tune.fy, density, globalAlpha, dims.h);
+    }
+
+    // The beat is no longer painted here — TuningBeatOverlay (a full-
+    // viewport DOM layer) reads --tune directly, so it covers this canvas,
+    // the WebGL chrome layer, and every other ambient layer uniformly.
+
+    ensureSettleLoop();
+  }, [ensureSettleLoop]);
+  renderAllRef.current = renderAll;
 
   // Generate raw scene data + initial render
   const setup = useCallback(() => {
@@ -1299,6 +1393,8 @@ const LineCanvas = memo(function LineCanvas() {
     }
     container.style.top = `-${overflowPx}px`;
     container.style.height = `${canvasH}px`;
+    // Dive dolly origin: the focal point (in container space)
+    container.style.transformOrigin = `${FOCAL_X * 100}% ${FOCAL_Y * vh + overflowPx}px`;
 
     const fx = FOCAL_X * w;
     const fy = FOCAL_Y * vh + overflowPx;
@@ -1306,7 +1402,47 @@ const LineCanvas = memo(function LineCanvas() {
     const scale = deviceTier === "mobile" ? 0.35 : deviceTier === "tablet" ? 0.55 : 1;
 
     rawRef.current = generateRawScene(fx, fy, w, canvasH, scale, rng);
-    dimsRef.current = { w, h: canvasH, vh, dpr };
+    dimsRef.current = {
+      w,
+      h: canvasH,
+      vh,
+      dpr,
+      maxScroll: Math.max(1, document.documentElement.scrollHeight - window.innerHeight),
+    };
+
+    // WebGL chrome tendrils: desktop/wide + real WebGL support + motion
+    // allowed. Mobile/tablet, no-WebGL, and reduced-motion all keep the
+    // original 2D drawChromeStroke fallback (chromeGLActiveRef stays false,
+    // renderMain's chromeGLActive gate keeps drawing brushes/inks itself).
+    const canUseGL =
+      (deviceTier === "desktop" || deviceTier === "wide") &&
+      !useStore.getState().reducedMotion &&
+      detectWebGL();
+    chromeGLActiveRef.current = canUseGL;
+
+    if (canUseGL && tendrilCanvasRef.current) {
+      try {
+        if (!tendrilRendererRef.current) {
+          tendrilRendererRef.current = new ChromeTendrilRenderer(tendrilCanvasRef.current);
+        }
+        tendrilRendererRef.current.resize(w, canvasH, dpr);
+        tendrilRendererRef.current.setScene(
+          rawRef.current.brushes,
+          rawRef.current.brushTangles,
+          rawRef.current.inks
+        );
+      } catch {
+        // WebGL context creation can still fail at runtime despite the
+        // capability probe (driver resets, context-limit exhaustion, etc.)
+        // — fall back to the 2D path rather than leave a blank layer.
+        chromeGLActiveRef.current = false;
+        tendrilRendererRef.current?.dispose();
+        tendrilRendererRef.current = null;
+      }
+    } else if (tendrilRendererRef.current) {
+      tendrilRendererRef.current.dispose();
+      tendrilRendererRef.current = null;
+    }
 
     renderAll(window.scrollY);
   }, [deviceTier, seed, renderAll]);
@@ -1333,9 +1469,17 @@ const LineCanvas = memo(function LineCanvas() {
 
     const update = () => {
       const scrollY = window.scrollY;
-      // Clamped CSS parallax
+      // Keep density progress accurate if content height changed after mount
+      // (Lenis already reads scrollHeight per frame, so this is layout-free).
+      dimsRef.current.maxScroll = Math.max(
+        1,
+        document.documentElement.scrollHeight - window.innerHeight
+      );
+      // Clamped CSS parallax + dive dolly (W10): zoom into the focal point
       const maxShift = dimsRef.current.vh * OVERFLOW;
-      el.style.transform = `translateY(${-Math.min(maxShift, scrollY * PARALLAX)}px)`;
+      const dive = diveRef.current;
+      const scale = dive > 0 ? ` scale(${(1 + dive * 1.7).toFixed(4)})` : "";
+      el.style.transform = `translateY(${-Math.min(maxShift, scrollY * PARALLAX)}px)${scale}`;
       // Redraw with deformation when scrolled enough
       if (Math.abs(scrollY - lastScrollRef.current) > 4) {
         lastScrollRef.current = scrollY;
@@ -1351,6 +1495,15 @@ const LineCanvas = memo(function LineCanvas() {
     return () => window.removeEventListener("scroll", onScroll);
   }, [renderAll]);
 
+  // Dispose the WebGL tendril renderer + stop the settle loop on unmount.
+  useEffect(() => {
+    return () => {
+      if (settleRafRef.current) cancelAnimationFrame(settleRafRef.current);
+      tendrilRendererRef.current?.dispose();
+      tendrilRendererRef.current = null;
+    };
+  }, []);
+
   return (
     <div
       ref={containerRef}
@@ -1360,6 +1513,12 @@ const LineCanvas = memo(function LineCanvas() {
     >
       <canvas ref={glowRef} className="absolute top-0 left-0" style={{ filter: "blur(20px)", opacity: 0.70 }} />
       <canvas ref={mainRef} className="absolute top-0 left-0" />
+      {/* WebGL chrome tendrils, painted on top of the 2D layers above
+          (matches the original draw order: brushes/inks were drawn near-
+          last, in front of hairlines/tangle/whip). Inert <canvas> when
+          chromeGLActiveRef is false — ChromeTendrilRenderer is simply never
+          constructed, so this stays a transparent no-op element. */}
+      <canvas ref={tendrilCanvasRef} className="absolute top-0 left-0" />
     </div>
   );
 });

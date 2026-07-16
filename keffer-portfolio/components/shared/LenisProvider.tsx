@@ -5,6 +5,10 @@ import Lenis from "lenis";
 import { useScrollProgress, useMouseTracking } from "@/hooks/useScrollProgress";
 import { useViewport } from "@/hooks/useViewport";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { deriveDensityKeypointsFromDOM } from "@/lib/density";
+import { lenisRef as sharedLenisRef, scrollVelocityRef } from "@/lib/scroll";
+import { getDailySeed } from "@/lib/generative";
+import { useStore } from "@/lib/store";
 
 export default function LenisProvider({
   children,
@@ -19,6 +23,12 @@ export default function LenisProvider({
   useMouseTracking();
   useReducedMotion();
 
+  // Apply the daily seed after hydration (SSR uses a fixed seed — see store).
+  // The regeneration happens behind the entry sequence, so it's invisible.
+  useEffect(() => {
+    useStore.setState({ seed: getDailySeed() });
+  }, []);
+
   useEffect(() => {
     const lenis = new Lenis({
       duration: 1.2,
@@ -28,9 +38,11 @@ export default function LenisProvider({
     });
 
     lenisRef.current = lenis;
+    sharedLenisRef.current = lenis;
 
     // Connect scroll to scene state
-    lenis.on("scroll", (e: { progress: number }) => {
+    lenis.on("scroll", (e: { progress: number; velocity: number }) => {
+      scrollVelocityRef.current = e.velocity;
       updateSceneFromScroll(e.progress);
     });
 
@@ -41,8 +53,21 @@ export default function LenisProvider({
 
     requestAnimationFrame(raf);
 
+    // Align the density choreography with real section positions (W3).
+    // Fonts/images can shift layout after mount, so measure again shortly
+    // after load and on resize.
+    deriveDensityKeypointsFromDOM();
+    const remeasure = () => deriveDensityKeypointsFromDOM();
+    const t1 = setTimeout(remeasure, 600);
+    const t2 = setTimeout(remeasure, 2500);
+    window.addEventListener("resize", remeasure);
+
     return () => {
       lenis.destroy();
+      sharedLenisRef.current = null;
+      clearTimeout(t1);
+      clearTimeout(t2);
+      window.removeEventListener("resize", remeasure);
     };
   }, [updateSceneFromScroll]);
 
