@@ -40,6 +40,8 @@ export default function ProjectCard({ project, index, isLeft }: ProjectCardProps
     () => SKY_PHOTOS[hashSlug(project.id) % SKY_PHOTOS.length],
     [project.id]
   );
+  const coverImage = project.coverImage ?? coverSky;
+  const coverImageAlt = project.coverImage ? project.coverImageAlt ?? project.title : "";
 
   const openCase = () => openVeil(() => router.push(`/work/${project.id}`));
 
@@ -77,8 +79,8 @@ export default function ProjectCard({ project, index, isLeft }: ProjectCardProps
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={coverSky}
-          alt=""
+          src={coverImage}
+          alt={coverImageAlt}
           className="w-full h-full object-cover"
           loading="lazy"
           draggable={false}
