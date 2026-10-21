@@ -5,6 +5,7 @@ import { useMounted } from "@/hooks/useMounted";
 import { useStore } from "@/lib/store";
 import { mulberry32 } from "@/lib/generative";
 import { PHI_INV } from "@/lib/tokens";
+import { bindLayerOpacity } from "@/lib/tuning";
 
 /**
  * Approximate max scroll depth in viewport-height units.
@@ -97,6 +98,12 @@ const ParticleDust = memo(function ParticleDust() {
     return () => window.removeEventListener("scroll", onScroll);
   }, [reducedMotion]);
 
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    return bindLayerOpacity("dust", el);
+  }, [mounted, reducedMotion]);
+
   if (reducedMotion) return null;
 
   if (!mounted) return null;
@@ -105,7 +112,7 @@ const ParticleDust = memo(function ParticleDust() {
     <div
       ref={containerRef}
       className="fixed inset-0 pointer-events-none overflow-hidden"
-      style={{ zIndex: 4, opacity: "var(--density-dust, 1)" }}
+      style={{ zIndex: 4 }}
       aria-hidden="true"
     >
       <style dangerouslySetInnerHTML={{ __html: styleContent }} />

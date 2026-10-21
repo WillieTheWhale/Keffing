@@ -52,13 +52,7 @@ export const durations = {
 export const PHI = 1.6180339887;
 export const PHI_INV = 0.6180339887;
 
-// Section scroll ranges
-export const sections = {
-  hero: { start: 0.0, end: 0.18 },
-  about: { start: 0.18, end: 0.35 },
-  projects: { start: 0.35, end: 0.70 },
-  research: { start: 0.70, end: 0.88 },
-  contact: { start: 0.88, end: 1.0 },
-} as const;
-
-export type SectionName = keyof typeof sections;
+// Section order, labels, and density targets now live in lib/sections.ts —
+// the old fixed-fraction ranges here were only consumed by the retired
+// lib/choreography.ts, and would have silently drifted the moment section
+// order or proportions changed (which is exactly what happened).

@@ -1,0 +1,126 @@
+[
+  {
+    "file": "airpods-pro-3.glb",
+    "errors": 0,
+    "warnings": 0,
+    "infos": 0,
+    "messages": []
+  },
+  {
+    "file": "bose-qc35.glb",
+    "errors": 0,
+    "warnings": 0,
+    "infos": 0,
+    "messages": []
+  },
+  {
+    "file": "dsi-xl-bronze.glb",
+    "errors": 0,
+    "warnings": 0,
+    "infos": 2,
+    "messages": [
+      {
+        "code": "IMAGE_NPOT_DIMENSIONS",
+        "message": "Image has non-power-of-two dimensions: 256x192.",
+        "severity": 2,
+        "pointer": "/images/3"
+      },
+      {
+        "code": "IMAGE_NPOT_DIMENSIONS",
+        "message": "Image has non-power-of-two dimensions: 320x240.",
+        "severity": 2,
+        "pointer": "/images/4"
+      }
+    ]
+  },
+  {
+    "file": "iphone-16-pro-max.glb",
+    "errors": 0,
+    "warnings": 0,
+    "infos": 1,
+    "messages": [
+      {
+        "code": "IMAGE_NPOT_DIMENSIONS",
+        "message": "Image has non-power-of-two dimensions: 192x416.",
+        "severity": 2,
+        "pointer": "/images/2"
+      }
+    ]
+  },
+  {
+    "file": "mac-mini-2024.glb",
+    "errors": 0,
+    "warnings": 0,
+    "infos": 0,
+    "messages": []
+  },
+  {
+    "file": "macbook-pro-m4-max.glb",
+    "errors": 0,
+    "warnings": 0,
+    "infos": 1,
+    "messages": [
+      {
+        "code": "IMAGE_NPOT_DIMENSIONS",
+        "message": "Image has non-power-of-two dimensions: 512x320.",
+        "severity": 2,
+        "pointer": "/images/3"
+      }
+    ]
+  },
+  {
+    "file": "new-2ds-xl-hylian.glb",
+    "errors": 0,
+    "warnings": 0,
+    "infos": 2,
+    "messages": [
+      {
+        "code": "IMAGE_NPOT_DIMENSIONS",
+        "message": "Image has non-power-of-two dimensions: 400x240.",
+        "severity": 2,
+        "pointer": "/images/3"
+      },
+      {
+        "code": "IMAGE_NPOT_DIMENSIONS",
+        "message": "Image has non-power-of-two dimensions: 320x240.",
+        "severity": 2,
+        "pointer": "/images/4"
+      }
+    ]
+  },
+  {
+    "file": "nintendo-switch.glb",
+    "errors": 0,
+    "warnings": 0,
+    "infos": 1,
+    "messages": [
+      {
+        "code": "IMAGE_NPOT_DIMENSIONS",
+        "message": "Image has non-power-of-two dimensions: 512x288.",
+        "severity": 2,
+        "pointer": "/images/1"
+      }
+    ]
+  },
+  {
+    "file": "panasonic-cf-sx1.glb",
+    "errors": 0,
+    "warnings": 0,
+    "infos": 1,
+    "messages": [
+      {
+        "code": "IMAGE_NPOT_DIMENSIONS",
+        "message": "Image has non-power-of-two dimensions: 512x288.",
+        "severity": 2,
+        "pointer": "/images/3"
+      }
+    ]
+  },
+  {
+    "file": "breville-barista-express.glb",
+    "errors": 0,
+    "warnings": 0,
+    "infos": 0,
+    "messages": []
+  }
+]

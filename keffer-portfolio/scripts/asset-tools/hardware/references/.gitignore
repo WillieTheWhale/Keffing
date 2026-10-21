@@ -1,0 +1,8 @@
+# Downloaded photography is a local modeling reference, not a website asset.
+*
+!.gitignore
+!sources.json
+!README.md
+
+!airpods-low-poly.json
+!switch-home-original.png

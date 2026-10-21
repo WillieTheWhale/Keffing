@@ -145,24 +145,11 @@ const EntrySequence = memo(function EntrySequence() {
           style={{ width: "1px", backgroundColor: "rgba(0,153,255,0.5)" }}
         />
       )}
-      {/* Corner brackets */}
-      {(["tl", "tr", "bl", "br"] as const).map((c) => (
-        <div
-          key={c}
-          className={`entry-corner entry-corner-${c}`}
-          style={{
-            position: "absolute",
-            width: "18px",
-            height: "18px",
-            [c[0] === "t" ? "top" : "bottom"]: "28px",
-            [c[1] === "l" ? "left" : "right"]: "28px",
-            borderTop: c[0] === "t" ? "1px solid rgba(255,255,255,0.5)" : "none",
-            borderBottom: c[0] === "b" ? "1px solid rgba(255,255,255,0.5)" : "none",
-            borderLeft: c[1] === "l" ? "1px solid rgba(255,255,255,0.5)" : "none",
-            borderRight: c[1] === "r" ? "1px solid rgba(255,255,255,0.5)" : "none",
-          }}
-        />
-      ))}
+      {/* Double rule with a stepped junction — the reference's drafting mark */}
+      <div className="entry-corner" style={{ position: "absolute", left: 28, bottom: 32, width: 180, height: 4, borderTop: "1px solid rgba(255,255,255,0.45)", borderBottom: "1px solid rgba(255,255,255,0.45)" }} />
+      <div className="entry-corner" style={{ position: "absolute", left: 28, bottom: 32, width: 0, height: 46, borderLeft: "1px solid rgba(255,255,255,0.45)" }} />
+      <div className="entry-corner" style={{ position: "absolute", right: 28, top: 32, width: 180, height: 4, borderTop: "1px solid rgba(255,255,255,0.45)", borderBottom: "1px solid rgba(255,255,255,0.45)" }} />
+      <div className="entry-corner" style={{ position: "absolute", right: 28, top: 32, width: 0, height: 46, borderLeft: "1px solid rgba(255,255,255,0.45)" }} />
       {/* Timecode + status */}
       <div className="flex flex-col items-center gap-3" style={{ transform: "translateY(-8px)" }}>
         <span

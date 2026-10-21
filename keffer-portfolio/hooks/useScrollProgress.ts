@@ -2,25 +2,19 @@
 
 import { useEffect, useCallback, useRef } from "react";
 import { useStore } from "@/lib/store";
-import { getSceneState } from "@/lib/choreography";
+import { activeSectionIdAt } from "@/lib/density";
 import { applyDensityVars } from "@/lib/tuning";
 
 export function useScrollProgress() {
   const updateSceneFromScroll = useCallback(
     (progress: number) => {
-      const state = getSceneState(progress);
-      // SINGLE batched Zustand set() call instead of 6 separate ones
       useStore.setState({
         scrollProgress: progress,
-        activeSection: state.activeSection,
-        focalPoint: state.focalPoint,
-        transitionPhase: state.transitionPhase,
-        lineParams: state.lineParams,
-        skyFragments: state.skyFragments,
+        activeSection: activeSectionIdAt(progress),
       });
       // Density choreography → CSS vars on <html>; overlay layers consume
       // them as plain opacity (no React re-renders).
-      applyDensityVars(progress, useStore.getState().reducedMotion);
+      applyDensityVars(progress);
     },
     []
   );

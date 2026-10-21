@@ -1,42 +1,50 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Archivo, Shippori_Mincho } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-// Typography System (design roadmap W2)
-// Display: Archivo variable — wght + wdth axes power the kinetic type in W5.
-// Paid upgrade path: Neue Haas Grotesk Display (swap via --font-display only).
-const archivo = Archivo({
+// Typography — all self-hosted from app/fonts (OFL; see app/fonts/LICENSES.md).
+// Nothing is requested from Google Fonts at build or run time.
+//
+// Display: Archivo variable (wght + wdth) — the wdth axis powers the wide
+// display cuts and the kinetic name.
+const archivo = localFont({
+  src: "./fonts/archivo-wdth.woff2",
   variable: "--font-archivo",
-  subsets: ["latin"],
-  axes: ["wdth"],
+  weight: "100 900",
   display: "swap",
+  declarations: [{ prop: "font-stretch", value: "62% 125%" }],
 });
 
 // Accent: Mincho-style serif for epigraphs / Japanese-editorial moments only.
-const shipporiMincho = Shippori_Mincho({
+const shipporiMincho = localFont({
+  src: "./fonts/shippori-mincho-400.woff2",
   variable: "--font-shippori",
-  subsets: ["latin"],
-  weight: ["400"],
+  weight: "400",
   display: "swap",
 });
 
-const inter = Inter({
+// Body: Inter variable.
+const inter = localFont({
+  src: "./fonts/inter-wght.woff2",
   variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: "100 900",
   display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains",
-  subsets: ["latin"],
-  weight: ["400"],
+// Utility mono: Server Mono (Internet Development, OFL) — a typewriter-derived
+// monospace for timecodes, captions and the typed-list voice of the reference.
+const serverMono = localFont({
+  src: [
+    { path: "./fonts/server-mono.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/server-mono-oblique.woff2", weight: "400", style: "italic" },
+  ],
+  variable: "--font-servermono",
   display: "swap",
 });
 
 // SEO Metadata (§16)
 export const metadata: Metadata = {
-  metadataBase: new URL("https://williamkeffer.com"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://williamkeffer.com"),
   title: "William Keffer — Computer Science × Mathematics × Machine Learning",
   description:
     "Portfolio of William Keffer. Junior at UNC Chapel Hill pursuing Computer Science and Mathematics. Research in adversarial machine learning, VLM security, and satellite-economic analysis.",
@@ -68,7 +76,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${archivo.variable} ${shipporiMincho.variable} ${inter.variable} ${jetbrainsMono.variable}`}
+      className={`${archivo.variable} ${shipporiMincho.variable} ${inter.variable} ${serverMono.variable}`}
     >
       <body className="antialiased">
         {/* Skip to content link for accessibility (§15) */}

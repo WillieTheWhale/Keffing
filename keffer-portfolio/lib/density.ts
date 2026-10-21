@@ -3,6 +3,8 @@
 // The scroll narrative: noise resolves into signal, then breaks apart again.
 // Keypoints follow Docs/motion-spec.md "Density choreography map".
 
+import { SECTIONS, SECTION_IDS, SectionName } from "./sections";
+
 export interface DensityKeypoint {
   p: number; // scroll progress 0..1
   d: number; // density 0..1
@@ -51,15 +53,16 @@ export function tuningAt(progress: number): number {
   return max;
 }
 
-/** Target density per section id (the design intent from the motion spec). */
-const SECTION_DENSITY: Record<string, number> = {
-  hero: 1.0,
-  about: 0.15,
-  projects: 0.55,
-  research: 0.3,
-  contact: 0.85,
-  dive: 0.05,
-};
+/** Target density per section id, derived from the canonical registry. */
+const SECTION_DENSITY: Record<string, number> = Object.fromEntries(
+  SECTIONS.map((s) => [s.id, s.density])
+);
+
+// Per-section [start,end] scroll-progress bands from the last DOM
+// measurement pass — powers activeSectionIdAt() below (replaces the old
+// fixed-fraction lib/choreography.ts system, which would have gone stale
+// the moment section order/proportions changed).
+let bandRanges: { id: SectionName; start: number; end: number }[] = [];
 
 /**
  * Derive the keypoint map from where sections ACTUALLY sit in the document,
@@ -68,12 +71,12 @@ const SECTION_DENSITY: Record<string, number> = {
  * (the future tuning transitions) living in the gaps between bands.
  */
 export function deriveDensityKeypointsFromDOM(): boolean {
-  const ids = ["hero", "about", "projects", "research", "contact", "dive"];
+  const ids = SECTION_IDS;
   const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
   if (maxScroll <= 0) return false;
 
   const kps: DensityKeypoint[] = [];
-  const bandEdges: { start: number; end: number }[] = [];
+  const bandEdges: { id: SectionName; start: number; end: number }[] = [];
   let found = 0;
   for (const id of ids) {
     const el = document.getElementById(id);
@@ -90,9 +93,10 @@ export function deriveDensityKeypointsFromDOM(): boolean {
     } else {
       kps.push({ p: (start + end) / 2, d });
     }
-    bandEdges.push({ start, end });
+    bandEdges.push({ id, start, end });
   }
   if (found < 3) return false;
+  bandRanges = bandEdges;
 
   // Section boundaries (tuning transition centers): midpoint of each gap
   // between consecutive bands. Skip the first (entry handles the top).
@@ -114,6 +118,30 @@ export function deriveDensityKeypointsFromDOM(): boolean {
   }
   activeKeypoints = clean;
   return true;
+}
+
+/**
+ * Which section dominates the viewport at a given scroll progress — the
+ * single source of truth for SectionNav's active dot, replacing the old
+ * fixed-fraction lookup (lib/choreography.ts, retired). Falls back to
+ * "hero" before the first DOM measurement pass has run.
+ */
+export function activeSectionIdAt(progress: number): SectionName {
+  if (bandRanges.length === 0) return "hero";
+  for (const b of bandRanges) {
+    if (progress >= b.start && progress <= b.end) return b.id;
+  }
+  // Between bands (mid tuning-transition) — nearest band center wins.
+  let best: SectionName = bandRanges[0].id;
+  let bestDist = Infinity;
+  for (const b of bandRanges) {
+    const d = Math.abs(progress - (b.start + b.end) / 2);
+    if (d < bestDist) {
+      bestDist = d;
+      best = b.id;
+    }
+  }
+  return best;
 }
 
 /** Cosine-eased interpolation over the keypoint bands. */
@@ -148,7 +176,7 @@ export function layerDensities(d: number) {
   };
 }
 
-// NOTE: applyDensityVars (writes --density-* CSS vars) now lives in
+// NOTE: applyDensityVars (which drives the per-layer opacity writes) lives in
 // lib/tuning.ts, which wraps densityAt/tuningAt with velocity-aware temporal
 // smoothing — see that file for why (fast scroll used to skip clean over the
 // whole tuning band in one frame with zero interpolation, a hard "pop").

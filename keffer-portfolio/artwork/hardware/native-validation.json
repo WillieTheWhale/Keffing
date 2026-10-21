@@ -1,0 +1,112 @@
+[
+  {
+    "file": "macbook-pro-m4-max.blend",
+    "meshes": 6,
+    "packedTextures": 4,
+    "allMeshesHaveUVs": true,
+    "distinctOpeningPoses": true,
+    "frameRange": [
+      1,
+      49
+    ]
+  },
+  {
+    "file": "panasonic-cf-sx1.blend",
+    "meshes": 7,
+    "packedTextures": 4,
+    "allMeshesHaveUVs": true,
+    "distinctOpeningPoses": true,
+    "frameRange": [
+      1,
+      49
+    ]
+  },
+  {
+    "file": "bose-qc35.blend",
+    "meshes": 7,
+    "packedTextures": 2,
+    "allMeshesHaveUVs": true,
+    "distinctOpeningPoses": true,
+    "frameRange": [
+      1,
+      49
+    ]
+  },
+  {
+    "file": "airpods-pro-3.blend",
+    "meshes": 4,
+    "packedTextures": 1,
+    "allMeshesHaveUVs": true,
+    "distinctOpeningPoses": true,
+    "frameRange": [
+      1,
+      49
+    ]
+  },
+  {
+    "file": "iphone-16-pro-max.blend",
+    "meshes": 4,
+    "packedTextures": 3,
+    "allMeshesHaveUVs": true,
+    "distinctOpeningPoses": true,
+    "frameRange": [
+      1,
+      49
+    ]
+  },
+  {
+    "file": "new-2ds-xl-hylian.blend",
+    "meshes": 6,
+    "packedTextures": 5,
+    "allMeshesHaveUVs": true,
+    "distinctOpeningPoses": true,
+    "frameRange": [
+      1,
+      49
+    ]
+  },
+  {
+    "file": "dsi-xl-bronze.blend",
+    "meshes": 6,
+    "packedTextures": 5,
+    "allMeshesHaveUVs": true,
+    "distinctOpeningPoses": true,
+    "frameRange": [
+      1,
+      49
+    ]
+  },
+  {
+    "file": "mac-mini-2024.blend",
+    "meshes": 3,
+    "packedTextures": 2,
+    "allMeshesHaveUVs": true,
+    "distinctOpeningPoses": true,
+    "frameRange": [
+      1,
+      49
+    ]
+  },
+  {
+    "file": "nintendo-switch.blend",
+    "meshes": 7,
+    "packedTextures": 4,
+    "allMeshesHaveUVs": true,
+    "distinctOpeningPoses": true,
+    "frameRange": [
+      1,
+      49
+    ]
+  },
+  {
+    "file": "breville-barista-express.blend",
+    "meshes": 14,
+    "packedTextures": 5,
+    "allMeshesHaveUVs": true,
+    "distinctOpeningPoses": true,
+    "frameRange": [
+      1,
+      49
+    ]
+  }
+]

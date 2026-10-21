@@ -5,19 +5,29 @@ import { useMounted } from "@/hooks/useMounted";
 import { useStore } from "@/lib/store";
 import { mulberry32 } from "@/lib/generative";
 import { PHI_INV } from "@/lib/tokens";
+import { TEXTURE_SEED } from "@/lib/composition";
+import { bindLayerOpacity } from "@/lib/tuning";
+import { windowVis } from "@/lib/window";
+
+/**
+ * Marginalia — the small drafting marks scattered through the composition,
+ * in the reference's own vocabulary: schematic traces with component boxes,
+ * rows of dots, double hairline rules with a stepped junction, tiny oblique
+ * codes, dial arcs with tick marks, star outlines, halftone patches, plain
+ * timecodes. Fixed seed; the placement is texture, not design.
+ */
 
 // ─── Module-level timecode loop (zero React overhead) ────────
 
 const timecodeEls = new Set<HTMLElement>();
 let tcRaf = 0;
 let tcLast = 0;
-
-function pad(n: number): string { return String(n).padStart(2, "0"); }
+const pad = (n: number) => String(n).padStart(2, "0");
 
 function startTimecodeLoop() {
   if (tcRaf) return;
   const tick = (now: number) => {
-    if (now - tcLast > 66) { // ~15fps
+    if (now - tcLast > 66) {
       tcLast = now;
       const d = new Date();
       const str = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}:${pad(Math.floor(d.getMilliseconds() / 33.33))}`;
@@ -27,24 +37,12 @@ function startTimecodeLoop() {
   };
   tcRaf = requestAnimationFrame(tick);
 }
-
 function stopTimecodeLoop() {
-  if (timecodeEls.size === 0 && tcRaf) {
-    cancelAnimationFrame(tcRaf);
-    tcRaf = 0;
-  }
+  if (timecodeEls.size === 0 && tcRaf) { cancelAnimationFrame(tcRaf); tcRaf = 0; }
 }
 
-/**
- * Approximate max scroll depth in viewport-height units.
- * Page is ~6.8vh tall, so maxScrollY ≈ 5.8 × vh.
- */
-const MAX_SCROLL_VH = 5.8;
-
-// ─── Timecode (ref-based, no state) ──────────────────────────
-
-function Timecode({ scale }: { scale?: number }) {
-  const ref = useRef<HTMLDivElement>(null);
+function Timecode() {
+  const ref = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -52,203 +50,186 @@ function Timecode({ scale }: { scale?: number }) {
     startTimecodeLoop();
     return () => { timecodeEls.delete(el); stopTimecodeLoop(); };
   }, []);
-
-  return (
-    <div
-      ref={ref}
-      className="font-mono"
-      style={{
-        fontSize: `${(scale || 1) * 11}px`,
-        letterSpacing: "0.08em",
-        color: "#333333",
-        fontFamily: "var(--font-mono)",
-        backgroundColor: "rgba(0, 153, 255, 0.12)",
-        padding: "1px 4px",
-      }}
-    >
-      00:00:00:00
-    </div>
-  );
+  return <span ref={ref} className="mark-code">00:00:00:00</span>;
 }
 
-// ─── Static element renderers (return inline JSX, no positioning) ──
+// ─── Marks ───────────────────────────────────────────────────
 
-function CrossMarkerInner({ size, weight }: { size: number; weight: number }) {
-  return (
-    <div style={{ width: `${size}px`, height: `${size}px`, position: "relative" }}>
-      <div style={{ position: "absolute", left: "50%", top: 0, width: `${weight}px`, height: "100%", backgroundColor: "rgba(0,0,0,0.4)", transform: "translateX(-50%)" }} />
-      <div style={{ position: "absolute", top: "50%", left: 0, height: `${weight}px`, width: "100%", backgroundColor: "rgba(0,0,0,0.4)", transform: "translateY(-50%)" }} />
-    </div>
-  );
+const MAX_SCROLL_VH = 5.8;
+const WORDS = ["help", "proxy", "tmp", "null", "echo", "sync", "idle", "ref", "pass", "seam"];
+
+function codeFor(rng: () => number): string {
+  const r = rng();
+  if (r < 0.4) return "0x" + Math.floor(rng() * 0xffffff).toString(16).padStart(6, "0");
+  if (r < 0.7) return `${pad(Math.floor(rng() * 40))}${pad(Math.floor(rng() * 30))}/${pad(Math.floor(rng() * 30))}/${Math.floor(rng() * 9)}`;
+  return `${pad(Math.floor(rng() * 40))}/${WORDS[Math.floor(rng() * WORDS.length)]}/${Math.floor(rng() * 9)}`;
 }
 
-function DotGridInner({ cols, rows, spacing }: { cols: number; rows: number; spacing: number }) {
-  const dots = [];
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      dots.push(
-        <div key={`${r}-${c}`} className="rounded-full" style={{ position: "absolute", left: `${c * spacing}px`, top: `${r * spacing}px`, width: "2px", height: "2px", backgroundColor: "rgba(0,0,0,0.35)" }} />
-      );
-    }
+/** Orthogonal trace with small hollow component boxes, like a fragment of a PCB schematic. */
+function Schematic({ rng }: { rng: () => number }) {
+  const segs = 2 + Math.floor(rng() * 3);
+  let x = 0, y = 0, horiz = rng() < 0.5;
+  const pts = [[0, 0]];
+  const boxes: [number, number][] = [];
+  for (let i = 0; i < segs; i++) {
+    const len = 18 + rng() * 80;
+    if (horiz) x += len * (rng() < 0.8 ? 1 : -1); else y += len * (rng() < 0.7 ? 1 : -1);
+    pts.push([x, y]);
+    if (rng() < 0.55) boxes.push([x, y]);
+    horiz = !horiz;
   }
-  return <div style={{ position: "relative", width: `${(cols - 1) * spacing + 2}px`, height: `${(rows - 1) * spacing + 2}px` }}>{dots}</div>;
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const minX = Math.min(...xs) - 8, minY = Math.min(...ys) - 8;
+  const w = Math.max(...xs) - minX + 8, h = Math.max(...ys) - minY + 8;
+  return (
+    <svg width={w} height={h} viewBox={`${minX} ${minY} ${w} ${h}`} className="mark-svg" aria-hidden="true">
+      <polyline points={pts.map((p) => p.join(",")).join(" ")} fill="none" stroke="rgba(0,0,0,0.38)" strokeWidth="1" />
+      {boxes.map(([bx, by], i) => {
+        const s = 5 + rng() * 7;
+        return <rect key={i} x={bx - s / 2} y={by - s / 2} width={s} height={s} fill="#fff" stroke="rgba(0,0,0,0.45)" strokeWidth="1" />;
+      })}
+      <circle cx={pts[0][0]} cy={pts[0][1]} r="1.4" fill="rgba(0,0,0,0.5)" />
+    </svg>
+  );
 }
 
-// ─── Main component ──────────────────────────────────────────
+function Dial({ rng }: { rng: () => number }) {
+  const r = 12 + rng() * 20;
+  const ticks = 10 + Math.floor(rng() * 16);
+  const arc = 0.45 + rng() * 0.55;
+  const t0 = rng() * Math.PI * 2;
+  const lines = Array.from({ length: ticks }, (_, i) => {
+    const a = t0 + (i / ticks) * Math.PI * 2 * arc;
+    const long = i % 5 === 0;
+    return [r + Math.cos(a) * (r - (long ? 6 : 3)), r + Math.sin(a) * (r - (long ? 6 : 3)), r + Math.cos(a) * r, r + Math.sin(a) * r];
+  });
+  return (
+    <svg width={r * 2 + 2} height={r * 2 + 2} viewBox={`-1 -1 ${r * 2 + 2} ${r * 2 + 2}`} className="mark-svg" aria-hidden="true">
+      <circle cx={r} cy={r} r={r} fill="none" stroke="rgba(0,0,0,0.22)" strokeWidth="0.8" />
+      {lines.map((l, i) => <line key={i} x1={l[0]} y1={l[1]} x2={l[2]} y2={l[3]} stroke="rgba(0,0,0,0.4)" strokeWidth="0.8" />)}
+    </svg>
+  );
+}
+
+function Star({ size, blue }: { size: number; blue: boolean }) {
+  const pts: string[] = [];
+  for (let i = 0; i < 10; i++) {
+    const rr = i % 2 === 0 ? 46 : 19;
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    pts.push(`${(50 + Math.cos(a) * rr).toFixed(1)},${(50 + Math.sin(a) * rr).toFixed(1)}`);
+  }
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" className="mark-svg" aria-hidden="true">
+      <polygon points={pts.join(" ")} fill="none" stroke={blue ? "#6f93d6" : "rgba(0,0,0,0.6)"} strokeWidth="4" />
+    </svg>
+  );
+}
+
+// ─── Layer ───────────────────────────────────────────────────
 
 const GlitchLayer = memo(function GlitchLayer() {
   const mounted = useMounted();
   const reducedMotion = useStore((s) => s.reducedMotion);
   const deviceTier = useStore((s) => s.deviceTier);
-  const seed = useStore((s) => s.seed);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const elements = useMemo(() => {
-    const rng = mulberry32(seed + 42);
+    const rng = mulberry32(TEXTURE_SEED + 42);
     const items: React.ReactElement[] = [];
-    const count = deviceTier === "mobile" ? 80 : deviceTier === "tablet" ? 150 : 240;
+    const count = deviceTier === "mobile" ? 60 : deviceTier === "tablet" ? 110 : 170;
 
     for (let i = 0; i < count; i++) {
       const type = rng();
       const x = rng() * 95;
-
-      // Distribute across full page depth using golden-ratio spacing
       const targetScrollVH = ((i * PHI_INV) % 1) * MAX_SCROLL_VH + (rng() - 0.5) * 0.4;
-      const parallaxFactor = 0.08 + rng() * 0.35; // 0.08–0.43
+      const parallaxFactor = 0.08 + rng() * 0.35;
       const viewportOffset = 5 + rng() * 85;
       const y = targetScrollVH * parallaxFactor * 100 + viewportOffset;
 
-      // Build inner content based on type
       let inner: React.ReactElement;
-
-      if (type < 0.06) {
-        inner = <Timecode key={`tc-inner-${i}`} scale={0.9 + rng() * 0.4} />;
-      } else if (type < 0.15) {
-        inner = <CrossMarkerInner key={`cross-inner-${i}`} size={10 + rng() * 25} weight={1 + Math.floor(rng() * 2)} />;
-      } else if (type < 0.22) {
-        inner = <DotGridInner key={`dots-inner-${i}`} cols={3 + Math.floor(rng() * 8)} rows={2 + Math.floor(rng() * 5)} spacing={4 + rng() * 4} />;
-      } else if (type < 0.34) {
-        const w = 30 + rng() * 180;
-        const label = rng() < 0.35 ? `${Math.floor(rng() * 9999)}` : undefined;
+      if (type < 0.16) {
+        inner = <Schematic rng={rng} />;
+      } else if (type < 0.30) {
+        const n = 5 + Math.floor(rng() * 10);
+        inner = <span className="mark-dots" style={{ width: n * 6 }} />;
+      } else if (type < 0.44) {
+        const len = 60 + rng() * 260;
+        const step = rng() < 0.4;
+        const stepLen = 26 + rng() * 60;
         inner = (
-          <div key={`rule-inner-${i}`}>
-            <div style={{ width: `${w}px`, height: "1px", backgroundColor: "rgba(0,0,0,0.2)" }} />
-            {label && <span className="font-mono" style={{ position: "absolute", top: "-8px", right: 0, fontSize: "8px", color: "#999", letterSpacing: "0.1em" }}>{label}</span>}
-          </div>
+          <span className="mark-rule" style={{ width: len }}>
+            {step && <span className="mark-rule-step" style={{ height: stepLen, [rng() < 0.5 ? "left" : "right"]: 0, [rng() < 0.5 ? "top" : "bottom"]: 0 }} />}
+          </span>
         );
-      } else if (type < 0.42) {
-        const bw = 30 + rng() * 120, bh = 20 + rng() * 80;
-        const bc = "rgba(0,0,0,0.35)";
-        const s = { position: "absolute" as const, width: "8px", height: "8px" };
-        inner = (
-          <div key={`corners-inner-${i}`} style={{ width: `${bw}px`, height: `${bh}px`, position: "relative" }}>
-            <div style={{ ...s, top: 0, left: 0, borderTop: `1px solid ${bc}`, borderLeft: `1px solid ${bc}` }} />
-            <div style={{ ...s, top: 0, right: 0, borderTop: `1px solid ${bc}`, borderRight: `1px solid ${bc}` }} />
-            <div style={{ ...s, bottom: 0, left: 0, borderBottom: `1px solid ${bc}`, borderLeft: `1px solid ${bc}` }} />
-            <div style={{ ...s, bottom: 0, right: 0, borderBottom: `1px solid ${bc}`, borderRight: `1px solid ${bc}` }} />
-          </div>
-        );
-      } else if (type < 0.50) {
-        inner = <div key={`dotted-inner-${i}`} style={{ width: `${40 + rng() * 150}px`, height: `${20 + rng() * 80}px`, border: "1px dotted rgba(0,0,0,0.2)" }} />;
       } else if (type < 0.60) {
-        const mw = 8 + rng() * 50;
-        const vert = rng() < 0.3;
-        inner = <div key={`bar-inner-${i}`} style={{ width: vert ? "2px" : `${mw}px`, height: vert ? `${mw}px` : "2px", backgroundColor: "rgba(0,0,0,0.5)" }} />;
-      } else if (type < 0.67) {
-        const bh = 10 + rng() * 25;
-        inner = (
-          <div key={`dbl-inner-${i}`}>
-            <div style={{ width: "2px", height: `${bh}px`, backgroundColor: "rgba(0,0,0,0.4)", display: "inline-block" }} />
-            <div style={{ width: "2px", height: `${bh}px`, backgroundColor: "rgba(0,0,0,0.4)", display: "inline-block", marginLeft: "3px" }} />
-          </div>
-        );
-      } else if (type < 0.74) {
-        const labels = [
-          `x:${Math.floor(rng() * 9999)} y:${Math.floor(rng() * 9999)}`,
-          `${Math.floor(rng() * 360)}\u00B0`,
-          `r:${(rng() * 10).toFixed(2)}`,
-          `t:${(rng() * 100).toFixed(1)}ms`,
-          `idx:${Math.floor(rng() * 999)}`,
-          `${Math.floor(rng() * 1920)}\u00D7${Math.floor(rng() * 1080)}`,
-        ];
-        inner = (
-          <div key={`coord-inner-${i}`} className="font-mono" style={{ fontSize: "8px", letterSpacing: "0.12em", color: "#AAAAAA", fontFamily: "var(--font-mono)", textTransform: "uppercase" }}>
-            {labels[Math.floor(rng() * labels.length)]}
-          </div>
-        );
-      } else if (type < 0.82) {
-        const cl = 20 + rng() * 100;
-        const cv = rng() < 0.4;
-        inner = <div key={`cyan-inner-${i}`} style={{ width: cv ? "1px" : `${cl}px`, height: cv ? `${cl}px` : "1px", backgroundColor: "rgba(0,153,255,0.35)" }} />;
-      } else if (type < 0.88) {
-        const cs = 8 + rng() * 30;
-        inner = <div key={`circle-inner-${i}`} className="rounded-full" style={{ width: `${cs}px`, height: `${cs}px`, border: "1px solid rgba(0,0,0,0.2)", marginLeft: `${-cs / 2}px`, marginTop: `${-cs / 2}px` }} />;
-      } else if (type < 0.93) {
-        const ts = 6 + rng() * 12;
-        const rot = rng() * 360;
-        inner = <div key={`tri-inner-${i}`} style={{ width: 0, height: 0, borderLeft: `${ts / 2}px solid transparent`, borderRight: `${ts / 2}px solid transparent`, borderBottom: `${ts}px solid rgba(0,0,0,0.3)`, transform: `rotate(${rot}deg)` }} />;
+        inner = <span className="mark-caption">{codeFor(rng)}</span>;
+      } else if (type < 0.65) {
+        inner = <Dial rng={rng} />;
+      } else if (type < 0.68) {
+        inner = <Star size={10 + rng() * 14} blue={rng() < 0.5} />;
+      } else if (type < 0.76) {
+        inner = <span className="mark-halftone" style={{ width: 40 + rng() * 90, height: 18 + rng() * 60 }} />;
+      } else if (type < 0.86) {
+        inner = <span className="mark-rect" style={{ width: 3 + rng() * 18, height: 3 + rng() * 12, opacity: 0.35 + rng() * 0.55 }} />;
+      } else if (type < 0.92) {
+        const s = 8 + rng() * 8;
+        inner = <span className="mark-plus" style={{ width: s, height: s }} />;
       } else {
-        inner = <div key={`micro-inner-${i}`} style={{ width: `${3 + rng() * 18}px`, height: `${3 + rng() * 12}px`, backgroundColor: `rgba(0,0,0,${0.3 + rng() * 0.5})` }} />;
+        inner = <Timecode />;
       }
 
       items.push(
-        <div
-          key={`g-${i}`}
-          className="absolute"
-          data-pf={parallaxFactor}
-          style={{
-            left: `${x}%`,
-            top: `${y}%`,
-            willChange: "transform",
-          }}
-        >
+        <div key={i} className="absolute" data-pf={parallaxFactor} data-at={Math.max(0, targetScrollVH).toFixed(2)} style={{ left: `${x}%`, top: `${y}%`, willChange: "transform", opacity: targetScrollVH > 0.3 ? 0 : 1 }}>
           {inner}
         </div>
       );
     }
     return items;
-  }, [deviceTier, seed]);
+  }, [deviceTier]);
 
-  // Direct per-element transform writes — compositor-only, no CSS custom property cascade.
   useEffect(() => {
     if (reducedMotion) return;
     const container = containerRef.current;
     if (!container) return;
-
-    const nodes = container.querySelectorAll<HTMLElement>("[data-pf]");
-    const els = Array.from(nodes);
+    const els = Array.from(container.querySelectorAll<HTMLElement>("[data-pf]"));
     const factors = new Float64Array(els.length);
+    const ats = new Float64Array(els.length);
     for (let i = 0; i < els.length; i++) {
       factors[i] = parseFloat(els[i].dataset.pf!);
+      ats[i] = parseFloat(els[i].dataset.at || "0");
     }
-
     let ticking = false;
     const update = () => {
       const sy = window.scrollY;
+      const svh = sy / Math.max(1, window.innerHeight);
       for (let i = 0; i < els.length; i++) {
         els[i].style.transform = `translateY(${-sy * factors[i]}px)`;
+        els[i].style.opacity = windowVis(svh, ats[i]).toFixed(3);
       }
       ticking = false;
     };
-
     const onScroll = () => {
       if (!ticking) { ticking = true; requestAnimationFrame(update); }
     };
-
     window.addEventListener("scroll", onScroll, { passive: true });
     update();
     return () => window.removeEventListener("scroll", onScroll);
-  }, [reducedMotion]);
+  }, [reducedMotion, mounted]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    return bindLayerOpacity("glitch", el);
+  }, [mounted, reducedMotion]);
 
   if (reducedMotion) return null;
-
   if (!mounted) return null;
 
   return (
     <div
       ref={containerRef}
       className="fixed inset-0 pointer-events-none overflow-hidden"
-      style={{ zIndex: 6, opacity: "var(--density-glitch, 1)" }}
+      style={{ zIndex: 6 }}
       aria-hidden="true"
     >
       {elements}

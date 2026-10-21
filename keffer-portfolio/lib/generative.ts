@@ -3,6 +3,15 @@
 
 import { PHI, PHI_INV } from "./tokens";
 
+/** Deterministic string → uint32 hash (djb2 variant). Used to seed a
+ * per-item RNG/background from a stable id (project slug, post slug, …)
+ * so the same item always renders the same seeded visuals. */
+export function hashSlug(s: string): number {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+
 // Mulberry32 PRNG - seeded pseudo-random number generator
 // Same seed = same output (daily seed for consistency)
 export function mulberry32(seed: number): () => number {
@@ -13,12 +22,6 @@ export function mulberry32(seed: number): () => number {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-// Get daily seed (changes daily, consistent within a day)
-export function getDailySeed(): number {
-  const now = new Date();
-  return now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
 }
 
 // Generate line control points using Fibonacci spiral + noise

@@ -1,157 +1,64 @@
 "use client";
 
-import { useMemo, useEffect, useRef, memo } from "react";
+import { useEffect, useRef, memo } from "react";
 import { useMounted } from "@/hooks/useMounted";
 import { useStore } from "@/lib/store";
 import { lyricsPool } from "@/content/lyrics";
-import { mulberry32, phiPosition } from "@/lib/generative";
-import { PHI_INV } from "@/lib/tokens";
+import { TEXTS, placedTop } from "@/lib/composition";
+import { bindLayerOpacity } from "@/lib/tuning";
+import { windowVis } from "@/lib/window";
 
 /**
- * Approximate max scroll depth in viewport-height units.
- * Page is ~6.8vh tall, so maxScrollY ≈ 5.8 × vh.
+ * Typed text columns — hand-placed in lib/composition.ts. The reference
+ * uses blocks of typewritten text as texture: small, tight-leaded, either
+ * the mono voice or the Mincho accent voice. They surface in the quiet
+ * sections (opacity from the density choreography) and move at a faster
+ * parallax than the photographs so they read as the nearest layer.
  */
-const MAX_SCROLL_VH = 5.8;
-
-interface TextBlock {
-  id: string;
-  text: string;
-  x: number;
-  y: number;
-  parallaxFactor: number;
-  opacity: number;
-  delay: number;
-  highlightWords: number[];
-}
-
-function HighlightedText({ text, highlightWords }: { text: string; highlightWords: number[] }) {
-  const words = text.split(/(\s+)/);
-  let wordIndex = 0;
-  return (
-    <>
-      {words.map((seg, i) => {
-        if (/^\s+$/.test(seg)) return <span key={i}>{seg}</span>;
-        const hl = highlightWords.includes(wordIndex);
-        wordIndex++;
-        return (
-          <span
-            key={i}
-            style={{
-              backgroundColor: hl ? "rgba(0, 153, 255, 0.18)" : "transparent",
-              padding: hl ? "1px 3px" : "0",
-            }}
-          >
-            {seg}
-          </span>
-        );
-      })}
-    </>
-  );
-}
-
 const AtmosphereLayer = memo(function AtmosphereLayer() {
   const mounted = useMounted();
   const reducedMotion = useStore((s) => s.reducedMotion);
   const deviceTier = useStore((s) => s.deviceTier);
-  const seed = useStore((s) => s.seed);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const textBlocks = useMemo(() => {
-    const rng = mulberry32(seed + 777);
-    const blockCount = deviceTier === "mobile" ? 10 : deviceTier === "tablet" ? 18 : 30;
-    const shuffled = [...lyricsPool].sort(() => rng() - 0.5);
+  const blocks = deviceTier === "mobile" ? TEXTS.filter((_, i) => i % 2 === 0) : TEXTS;
 
-    const blocks: TextBlock[] = [];
-
-    for (let i = 0; i < blockCount; i++) {
-      const lyric = shuffled[i % shuffled.length];
-      const [px] = phiPosition(100, 100, i, rng);
-      const wordCount = lyric.text.split(/\s+/).length;
-      const highlightCount = 1 + Math.floor(rng() * 3);
-      const highlightWords: number[] = [];
-      for (let h = 0; h < highlightCount; h++) {
-        highlightWords.push(Math.floor(rng() * wordCount));
-      }
-
-      // Distribute across full page depth using golden-ratio spacing
-      const targetScrollVH = ((i * PHI_INV) % 1) * MAX_SCROLL_VH + (rng() - 0.5) * 0.5;
-      // Distinctly faster parallax range than other layers (0.50–0.92)
-      const parallaxFactor = 0.50 + rng() * 0.42;
-      const viewportOffset = 5 + rng() * 85;
-      const y = targetScrollVH * parallaxFactor * 100 + viewportOffset;
-
-      blocks.push({
-        id: `atmo-${i}`,
-        text: lyric.text,
-        x: px,
-        y,
-        parallaxFactor,
-        opacity: 0.35 + rng() * 0.45,
-        delay: Math.min(i * 0.15 + rng() * 0.8, 3),
-        highlightWords,
-      });
-    }
-
-    return blocks;
-  }, [deviceTier, seed]);
-
-  // Direct per-element transform writes — compositor-only, no CSS custom property cascade.
   useEffect(() => {
     if (reducedMotion) return;
     const container = containerRef.current;
     if (!container) return;
-
-    const nodes = container.querySelectorAll<HTMLElement>("[data-pf]");
-    const els = Array.from(nodes);
+    const els = Array.from(container.querySelectorAll<HTMLElement>("[data-pf]"));
     const factors = new Float64Array(els.length);
+    const ats = new Float64Array(els.length);
+    const base = new Float64Array(els.length);
     for (let i = 0; i < els.length; i++) {
       factors[i] = parseFloat(els[i].dataset.pf!);
+      ats[i] = parseFloat(els[i].dataset.at || "0");
+      base[i] = parseFloat(els[i].dataset.op || "0.7");
     }
-
     let ticking = false;
     const update = () => {
       const sy = window.scrollY;
+      const svh = sy / Math.max(1, window.innerHeight);
       for (let i = 0; i < els.length; i++) {
         els[i].style.transform = `translateY(${-sy * factors[i]}px)`;
+        els[i].style.opacity = (base[i] * windowVis(svh, ats[i])).toFixed(3);
       }
       ticking = false;
     };
-
     const onScroll = () => {
       if (!ticking) { ticking = true; requestAnimationFrame(update); }
     };
-
     window.addEventListener("scroll", onScroll, { passive: true });
     update();
     return () => window.removeEventListener("scroll", onScroll);
-  }, [reducedMotion]);
+  }, [reducedMotion, mounted]);
 
-  if (reducedMotion) {
-    return (
-      <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 15 }} aria-hidden="true">
-        {textBlocks.map((block) => (
-          <div
-            key={block.id}
-            className="absolute"
-            style={{
-              left: `${block.x}%`,
-              top: `${block.y}%`,
-              fontFamily: "var(--font-mono)",
-              fontSize: "11px",
-              lineHeight: "2.0",
-              letterSpacing: "0.05em",
-              color: "#1A1A1A",
-              opacity: block.opacity,
-              maxWidth: "300px",
-              whiteSpace: "pre-line",
-            }}
-          >
-            {block.text}
-          </div>
-        ))}
-      </div>
-    );
-  }
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    return bindLayerOpacity("atmosphere", el);
+  }, [mounted, reducedMotion]);
 
   if (!mounted) return null;
 
@@ -159,52 +66,25 @@ const AtmosphereLayer = memo(function AtmosphereLayer() {
     <div
       ref={containerRef}
       className="fixed inset-0 pointer-events-none overflow-hidden"
-      style={{ zIndex: 15, opacity: "var(--density-atmosphere, 1)" }}
+      style={{ zIndex: 15 }}
       aria-hidden="true"
     >
-      {/* Opacity-only fade-in. No transform in keyframes — that would
-          override the CSS calc parallax via animation fill-mode. */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes atmo-fade {
-          from { opacity: 0; }
-          to { opacity: var(--atmo-op, 0.5); }
-        }
-      `}} />
-      {textBlocks.map((block, bi) => {
-        // Every third block speaks in the accent voice (Shippori Mincho) —
-        // epigraphs that surface in the quiet sections (W5).
-        const accent = bi % 3 === 0;
+      {blocks.map((b, i) => {
+        const lyric = lyricsPool[b.frag % lyricsPool.length];
         return (
           <div
-            key={block.id}
-            className="absolute"
-            data-pf={block.parallaxFactor}
+            key={i}
+            className={`typed${b.accent ? " typed-accent" : ""}`}
+            data-pf={reducedMotion ? undefined : b.parallax}
+            data-at={b.atVH}
+            data-op={b.opacity ?? 0.7}
             style={{
-              left: `${block.x}%`,
-              top: `${block.y}%`,
-              willChange: "transform",
+              left: `${b.x}%`,
+              top: `${placedTop(b.atVH, b.offset, b.parallax)}%`,
+              opacity: b.atVH > 0 && !reducedMotion ? 0 : (b.opacity ?? 0.7),
             }}
           >
-            <div
-              className="pointer-events-none select-none"
-              style={{
-                fontFamily: accent
-                  ? "var(--font-accent), Georgia, serif"
-                  : "var(--font-mono)",
-                fontSize: accent ? "14px" : "11px",
-                lineHeight: accent ? "2.2" : "2.0",
-                letterSpacing: accent ? "0.12em" : "0.05em",
-                color: "#1A1A1A",
-                maxWidth: accent ? "340px" : "300px",
-                textAlign: "left",
-                whiteSpace: "pre-line",
-                opacity: 0,
-                "--atmo-op": block.opacity,
-                animation: `atmo-fade 0.6s ease ${block.delay}s forwards`,
-              } as React.CSSProperties}
-            >
-              <HighlightedText text={block.text} highlightWords={block.highlightWords} />
-            </div>
+            {lyric.text}
           </div>
         );
       })}

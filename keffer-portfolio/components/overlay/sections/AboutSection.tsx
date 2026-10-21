@@ -1,9 +1,12 @@
 "use client";
 
 import { useRef } from "react";
+import dynamic from "next/dynamic";
 import { motion, useInView } from "framer-motion";
 import { springs } from "@/lib/tokens";
 import SectionTitle from "@/components/shared/SectionTitle";
+
+const MiiWave = dynamic(() => import("./MiiWave"), { ssr: false, loading: () => null });
 
 export default function AboutSection() {
   const ref = useRef<HTMLElement>(null);
@@ -18,8 +21,13 @@ export default function AboutSection() {
     >
       <div className="w-full px-6 md:px-12 lg:px-20">
         <SectionTitle num="02" eyebrow="About" title="BIO" inView={isInView} />
-        {/* Content positioned right-of-center per §2.2 */}
-        <div className="mx-auto md:ml-auto md:mr-[10%] max-w-[520px] content-panel">
+        {/* The Mii stands to the left of the bio panel; both right-of-centre per §2.2 */}
+        <div className="about-layout">
+        <div className="about-mii">
+          <MiiWave />
+          <p id="mii-caption" className="mark-caption mt-1" style={{ textAlign: "center" }}>02/mii / click for a surprise</p>
+        </div>
+        <div className="min-w-0 max-w-[520px] content-panel">
           <motion.p
             className="font-sans mb-6"
             style={{
@@ -64,52 +72,24 @@ export default function AboutSection() {
             >
               Aletiune
             </a>
-            , nine rendering layers stack from back to front forming a highly
-            chaotic and variable scene. This portfolio runs on Next.js 16 with
-            TypeScript, Tailwind CSS, and Zustand, rendering a multi-layered
-            composition of canvas-drawn chrome strokes, drifting sky fragments,
-            particle dust, and glitch artifacts at 60fps. A date-derived seed
-            feeds a Mulberry32 pseudo-random number generator each day,
-            deterministically driving the placement, curvature, and styling of
-            every visual element so the composition stays consistent within a
-            single day. When the date changes, the seed advances and the entire
-            visual landscape regenerates, ensuring the site looks different
-            every day while maintaining its cohesive aesthetic.
+            , the page is one composition built in layers: edge-traced cables
+            and liquid chrome drawn in WebGL, screen-printed sky photographs,
+            flat blocks, typed marginalia. It runs on Next.js 16 with
+            TypeScript, Tailwind CSS, and Zustand, and every prominent element
+            is placed by hand — only the fine texture is generated, from a
+            single fixed seed, so what you see is the same picture every time.
           </motion.p>
 
-          {/* Skills as minimal tags */}
-          <motion.div
-            className="flex flex-wrap gap-2 mt-8"
+          {/* Skills as a typed list */}
+          <motion.p
+            className="typed-list mt-8"
             initial={{ opacity: 0 }}
             animate={isInView ? { opacity: 1 } : {}}
             transition={{ delay: 0.8, duration: 0.6 }}
           >
-            {[
-              "Python",
-              "TypeScript",
-              "Rust",
-              "Machine Learning",
-              "PyTorch",
-              "React",
-              "Next.js",
-              "AWS",
-              "Kubernetes",
-            ].map((skill, i) => (
-              <motion.span
-                key={skill}
-                className="px-3 py-1 font-mono text-[11px] tracking-wide"
-                style={{
-                  border: "1px solid rgba(0, 153, 255, 0.3)",
-                  color: "#333333",
-                }}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={isInView ? { opacity: 1, scale: 1 } : {}}
-                transition={{ delay: 0.9 + i * 0.05 }}
-              >
-                {skill}
-              </motion.span>
-            ))}
-          </motion.div>
+            python / typescript / rust / machine learning / pytorch / react / next.js / aws / kubernetes
+          </motion.p>
+        </div>
         </div>
       </div>
     </section>

@@ -19,45 +19,29 @@ export default function HeroSection() {
         <div className="mx-auto md:ml-auto md:mr-[8%] max-w-[900px]">
           <KineticName />
 
-          {/* Tagline */}
+          {/* Tagline — no panel, a halo keeps it legible over the field */}
           <motion.p
-            className="mt-5 font-sans font-normal inline-block"
+            className="hero-tagline mt-5 font-sans font-normal inline-block"
             style={{
               fontSize: "clamp(15px, 1.6vw, 18px)",
               lineHeight: 1.5,
               color: "#1A1A1A",
-              backgroundColor: "rgba(255,255,255,0.78)",
-              backdropFilter: "blur(5px)",
-              padding: "6px 12px",
             }}
             initial={{ opacity: 0, y: 20 }}
             animate={entryDone ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-            transition={{
-              type: "spring",
-              ...springs.gentle,
-              delay: 0.6,
-            }}
+            transition={{ type: "spring", ...springs.gentle, delay: 0.6 }}
           >
             Computer Science &times; Mathematics &times; Machine Learning
           </motion.p>
 
-          {/* Subtle descriptor line */}
+          {/* Record line in the reference's caption voice */}
           <motion.div
-            className="mt-8 flex items-center gap-3"
+            className="mt-6"
             initial={{ opacity: 0 }}
             animate={entryDone ? { opacity: 1 } : { opacity: 0 }}
             transition={{ delay: 1.0, duration: 0.8 }}
           >
-            <div
-              className="h-px flex-grow max-w-[60px]"
-              style={{ backgroundColor: "#0099FF" }}
-            />
-            <span
-              className="font-mono text-[11px] tracking-[0.15em] uppercase"
-              style={{ color: "#333333" }}
-            >
-              Portfolio website
-            </span>
+            <span className="hero-caption">01/portfolio/2026 &nbsp;&middot;&nbsp; chapel hill, nc</span>
           </motion.div>
         </div>
 
@@ -66,27 +50,14 @@ export default function HeroSection() {
           className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
           initial={{ opacity: 0 }}
           animate={entryDone ? { opacity: [0, 0.6, 0.6, 0.3] } : { opacity: 0 }}
-          transition={{
-            duration: 3,
-            repeat: Infinity,
-            delay: 2,
-          }}
+          transition={{ duration: 3, repeat: Infinity, delay: 2 }}
         >
-          <span
-            className="font-mono text-[10px] tracking-[0.2em] uppercase"
-            style={{ color: "#999999" }}
-          >
-            Scroll
-          </span>
+          <span className="hero-caption">scroll</span>
           <motion.div
             className="w-px h-8"
-            style={{ backgroundColor: "#CCCCCC" }}
+            style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
             animate={{ scaleY: [0, 1, 0] }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
           />
         </motion.div>
       </div>

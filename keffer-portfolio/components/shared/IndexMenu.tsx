@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { scrollToSection } from "@/lib/scroll";
+import { SECTIONS } from "@/lib/sections";
 
 /**
  * Index menu — SIGNAL/NOISE roadmap W4.
@@ -10,14 +11,13 @@ import { scrollToSection } from "@/lib/scroll";
  * entries that de-tune on hover. Escape or any entry closes it.
  */
 
-const ENTRIES: { id: string; num: string; label: string; note: string; red?: boolean }[] = [
-  { id: "hero", num: "01", label: "SIGNAL", note: "the burst" },
-  { id: "about", num: "02", label: "BIO", note: "first silence" },
-  { id: "projects", num: "03", label: "WORK", note: "experience + selected projects" },
-  { id: "research", num: "04", label: "RESEARCH", note: "adversarial ML · VLM security" },
-  { id: "contact", num: "05", label: "CONTACT", note: "open channel" },
-  { id: "dive", num: "06", label: "THE DIVE", note: "pure signal", red: true },
-];
+const ENTRIES = SECTIONS.map((s) => ({
+  id: s.id,
+  num: s.num,
+  label: s.indexLabel,
+  note: s.indexNote,
+  red: s.red,
+}));
 
 function fmtNow(): string {
   const d = new Date();
@@ -84,28 +84,17 @@ export default function IndexMenu() {
 
   return (
     <>
-      {/* Persistent chip */}
+      {/* Persistent chip — typed label over a hairline, no panel */}
       <button
         type="button"
         onClick={openMenu}
-        className="fixed top-6 right-6 flex items-center gap-3 font-mono uppercase"
-        style={{
-          zIndex: 40,
-          fontSize: "10px",
-          letterSpacing: "0.2em",
-          padding: "10px 14px",
-          color: "#1A1A1A",
-          backgroundColor: "rgba(255,255,255,0.85)",
-          border: "1px solid rgba(0,0,0,0.25)",
-          backdropFilter: "blur(6px)",
-          cursor: "pointer",
-        }}
+        className="index-chip"
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label="Open index menu"
       >
-        <span ref={chipTimeRef} style={{ color: "#0099FF" }}>00:00:00</span>
-        <span>Index</span>
+        <span className="index-chip-code" ref={chipTimeRef}>00:00:00</span>
+        <span className="index-chip-label">index</span>
       </button>
 
       {/* Full-screen index */}
@@ -133,26 +122,18 @@ export default function IndexMenu() {
             <span
               ref={timecodeRef}
               className="font-mono"
-              style={{ fontSize: "11px", letterSpacing: "0.25em", color: "#0099FF" }}
+              style={{ fontSize: "10px", fontStyle: "italic", letterSpacing: "0.2em", color: "rgba(255,255,255,0.6)" }}
             >
               00:00:00
             </span>
             <button
               type="button"
               onClick={closeMenu}
-              className="font-mono uppercase"
-              style={{
-                fontSize: "10px",
-                letterSpacing: "0.25em",
-                color: "rgba(255,255,255,0.7)",
-                border: "1px solid rgba(255,255,255,0.25)",
-                padding: "8px 14px",
-                cursor: "pointer",
-                background: "transparent",
-              }}
+              className="ctl-stub ctl-stub-inverse"
               aria-label="Close index menu"
             >
-              Close
+              <span className="ctl-eyebrow">esc</span>
+              <span className="ctl-label" style={{ fontSize: 13 }}>Close</span>
             </button>
           </div>
 
@@ -177,9 +158,10 @@ export default function IndexMenu() {
                 <span
                   className="font-mono"
                   style={{
-                    fontSize: "11px",
-                    letterSpacing: "0.2em",
-                    color: e.red ? "var(--signal-red)" : "#0099FF",
+                    fontSize: "10px",
+                    fontStyle: "italic",
+                    letterSpacing: "0.12em",
+                    color: e.red ? "var(--signal-red)" : "rgba(255,255,255,0.55)",
                   }}
                 >
                   {e.num}

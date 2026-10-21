@@ -7,8 +7,6 @@ import { useViewport } from "@/hooks/useViewport";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { deriveDensityKeypointsFromDOM } from "@/lib/density";
 import { lenisRef as sharedLenisRef, scrollVelocityRef } from "@/lib/scroll";
-import { getDailySeed } from "@/lib/generative";
-import { useStore } from "@/lib/store";
 
 export default function LenisProvider({
   children,
@@ -22,12 +20,6 @@ export default function LenisProvider({
   useViewport();
   useMouseTracking();
   useReducedMotion();
-
-  // Apply the daily seed after hydration (SSR uses a fixed seed — see store).
-  // The regeneration happens behind the entry sequence, so it's invisible.
-  useEffect(() => {
-    useStore.setState({ seed: getDailySeed() });
-  }, []);
 
   useEffect(() => {
     const lenis = new Lenis({
@@ -45,6 +37,11 @@ export default function LenisProvider({
       scrollVelocityRef.current = e.velocity;
       updateSceneFromScroll(e.progress);
     });
+    // Kick the choreography once so the ambient layers take their initial
+    // values before the first scroll event (matters when arriving back from
+    // a detail page that had them pinned).
+    const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    updateSceneFromScroll(Math.min(1, window.scrollY / maxScroll));
 
     function raf(time: number) {
       lenis.raf(time);

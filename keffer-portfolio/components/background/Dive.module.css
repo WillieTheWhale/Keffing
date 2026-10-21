@@ -1,0 +1,267 @@
+/* Background — ALLOY. The finale's static styles. Every value that moves is
+   written per frame by Dive.tsx (transform / opacity / clip-path only). */
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+}
+
+.sky {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+.sky img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.breath {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 54% 50% at 50% 50%, rgba(237, 240, 244, calc(var(--breath) * 1)) 0%, rgba(237, 240, 244, calc(var(--breath) * 0.55)) 38%, rgba(237, 240, 244, 0) 100%);
+}
+
+.content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 0 24px;
+  text-align: center;
+}
+
+.eyebrow {
+  position: relative;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: #1d2230;
+  white-space: nowrap;
+}
+@media (max-width: 520px) {
+  .eyebrow { white-space: normal; letter-spacing: 0.28em; line-height: 1.7; max-width: 300px; }
+}
+.caret {
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 0.62em;
+  height: 1.25em;
+  background: #1d2230;
+  opacity: 0;
+}
+
+.head {
+  position: relative;
+  text-transform: uppercase;
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+  font-weight: 800;
+  font-stretch: 122%;
+  font-size: clamp(34px, 5.5vw, 84px);
+  line-height: 1;
+  letter-spacing: -0.015em;
+  color: #000;
+  white-space: nowrap;
+  perspective: 600px;
+}
+.letter {
+  display: inline-block;
+  transform-origin: 50% 88%;
+  will-change: transform, opacity;
+}
+.sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: transparent;
+  background-image: linear-gradient(104deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0) 42%, rgba(120, 150, 210, 0.55) 46.5%, rgba(244, 248, 255, 0.96) 49.5%, rgba(255, 255, 255, 1) 50%, rgba(30, 45, 92, 0.5) 53.5%, rgba(255, 255, 255, 0) 57%, rgba(255, 255, 255, 0) 100%);
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  background-position: 120% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  opacity: 0;
+}
+
+.para {
+  font-family: var(--font-sans);
+  max-width: 440px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #12151c;
+}
+.word {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 8px;
+}
+
+.cta {
+  position: relative;
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #fff;
+  padding: 14px 22px;
+  text-decoration: none;
+  outline-offset: 5px;
+}
+.ctaFrame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.ctaFrame rect {
+  fill: none;
+  stroke: #000;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+.ctaOffset {
+  position: absolute;
+  inset: 0;
+  transform: translate(5px, 5px);
+  border: 1px solid rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  opacity: 0;
+}
+.ctaFill {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  clip-path: inset(0 100% 0 0);
+  transition: background-color 220ms linear;
+}
+.ctaGlint {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.ctaGlint::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0) 0%, rgba(168, 192, 240, 0.22) 45%, rgba(255, 255, 255, 0.34) 50%, rgba(255, 255, 255, 0) 60%);
+  transform: translateX(var(--glint, -120%));
+}
+.ctaLabel {
+  position: relative;
+  display: inline-block;
+  white-space: nowrap;
+}
+.ctaLabel span {
+  display: inline-block;
+}
+.cta:hover .ctaFill,
+.cta:focus-visible .ctaFill {
+  background: #1f2f5c;
+}
+.cta:focus-visible {
+  outline: 2px solid #3d63b8;
+}
+
+.back {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5em;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: lowercase;
+  color: #000;
+  background: none;
+  border: 0;
+  padding: 0 0 5px;
+  cursor: pointer;
+  outline-offset: 5px;
+}
+.backLabel {
+  display: inline-block;
+}
+.backArrow {
+  display: inline-block;
+}
+.backLine {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: #000;
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+}
+.back:focus-visible {
+  outline: 2px solid #3d63b8;
+}
+
+.copy {
+  display: inline-block;
+  margin-top: 32px;
+  font-size: 9px;
+}
+
+.threshold {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding-top: 8px;
+  z-index: 1;
+}
+.rule {
+  width: 100%;
+  height: 1px;
+  background: var(--signal-red);
+  transform: scaleX(0);
+}
+.ruleLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--signal-red);
+  white-space: nowrap;
+}

@@ -56,7 +56,7 @@ await page.waitForTimeout(3000);
 await shot(page, "01-hero");
 
 // Sections
-for (const id of ["about", "projects", "research", "contact"]) {
+for (const id of ["about", "work", "stuff", "experience", "contact"]) {
   await page.evaluate((sid) => {
     const el = document.getElementById(sid);
     if (el) window.scrollTo(0, el.offsetTop + el.offsetHeight / 2 - innerHeight / 2);

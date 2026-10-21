@@ -8,7 +8,7 @@ export const lenisRef: { current: Lenis | null } = { current: null };
 /** Smoothed scroll velocity (px/frame-ish, signed), updated by LenisProvider. */
 export const scrollVelocityRef = { current: 0 };
 
-/** Dive progress 0..1 (W10 finale dolly), written by DiveSection. */
+/** Dive progress 0..1 (the finale), written by components/background/Dive.tsx. */
 export const diveRef = { current: 0 };
 
 export function scrollToSection(id: string) {

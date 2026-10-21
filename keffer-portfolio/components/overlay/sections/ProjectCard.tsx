@@ -7,29 +7,33 @@ import { Project } from "@/content/projects";
 import { springs } from "@/lib/tokens";
 import { useStore } from "@/lib/store";
 import { SKY_PHOTOS } from "@/lib/fragments";
+import { hashSlug } from "@/lib/generative";
 import { openVeil } from "@/components/shared/Veil";
 
 /**
- * Project card as an editorial spread — SIGNAL/NOISE roadmap W8.
- * Media well in the sky-fragment language, display-face title, clamped
- * summary (full story lives in the case file), and a case-study link that
- * departs through the veil. Hover assembles the card: the media well and
- * accent settle into place.
+ * Project card as a file: a screen-printed photograph (straight-cut, with
+ * the reference's oblique code in the corner), the title in the display
+ * voice, a clamped summary, and the stack as a typed slash-list. Hover
+ * frames the photograph in a thin red hairline — the one red the reference
+ * allows itself.
  */
 
 interface ProjectCardProps {
   project: Project;
   index: number;
-  isLeft: boolean;
+  isLeft?: boolean;
+  horizontal?: boolean;
+  /** Drum spoke variant: fills its 3D wrapper, no entrance spring of its own. */
+  drum?: boolean;
 }
 
-function hashSlug(s: string): number {
-  let h = 5381;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
-  return h;
-}
-
-export default function ProjectCard({ project, index, isLeft }: ProjectCardProps) {
+export default function ProjectCard({
+  project,
+  index,
+  isLeft = true,
+  horizontal = false,
+  drum = false,
+}: ProjectCardProps) {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-80px" });
   const deviceTier = useStore((s) => s.deviceTier);
@@ -40,39 +44,39 @@ export default function ProjectCard({ project, index, isLeft }: ProjectCardProps
     () => SKY_PHOTOS[hashSlug(project.id) % SKY_PHOTOS.length],
     [project.id]
   );
+  const code = useMemo(() => "0x" + (hashSlug(project.id) & 0xffffff).toString(16).padStart(6, "0"), [project.id]);
 
   const openCase = () => openVeil(() => router.push(`/work/${project.id}`));
 
   return (
     <motion.div
       ref={ref}
-      className={`project-card relative max-w-[520px] content-panel ${
-        isMobile
-          ? "mx-auto"
-          : isLeft
-            ? "mr-auto ml-[5%] md:ml-[10%]"
-            : "ml-auto mr-[5%] md:mr-[10%]"
+      className={`project-card relative content-panel ${
+        drum
+          ? "w-full"
+          : horizontal
+            ? "shrink-0 snap-start w-[84vw] sm:w-[66vw] md:w-[520px]"
+            : isMobile
+              ? "max-w-[520px] mx-auto"
+              : isLeft
+                ? "max-w-[520px] mr-auto ml-[5%] md:ml-[10%]"
+                : "max-w-[520px] ml-auto mr-[5%] md:mr-[10%]"
       }`}
-      style={{
-        marginTop: index === 0 ? 0 : `${60 + (index % 3) * 20}px`,
+      style={drum || horizontal ? undefined : { marginTop: index === 0 ? 0 : `${60 + (index % 3) * 20}px` }}
+      initial={drum ? false : {
+        opacity: 0,
+        y: isMobile ? 18 : horizontal ? 0 : 30,
+        x: isMobile ? 0 : horizontal ? 24 : isLeft ? -20 : 20,
       }}
-      initial={{ opacity: 0, y: 30, x: isMobile ? 0 : isLeft ? -20 : 20 }}
       animate={isInView ? { opacity: 1, y: 0, x: 0 } : {}}
       transition={{ type: "spring", ...springs.gentle, delay: 0.1 }}
     >
-      {/* Media well — seeded sky fragment, cut in the collage language */}
+      {/* Photograph */}
       <button
         type="button"
         onClick={openCase}
-        className="project-card-media relative block w-full overflow-hidden mb-5"
-        style={{
-          height: "170px",
-          clipPath: "polygon(0 3%, 100% 0, 98% 97%, 2% 100%)",
-          cursor: "pointer",
-          border: "none",
-          padding: 0,
-          background: "none",
-        }}
+        className="project-card-media sky-print relative block w-full mb-2"
+        style={{ height: "170px", cursor: "pointer", border: "none", padding: 0, background: "none" }}
         aria-label={`Open case study: ${project.title}`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -81,14 +85,9 @@ export default function ProjectCard({ project, index, isLeft }: ProjectCardProps
           alt=""
           className="w-full h-full object-cover"
           loading="lazy"
+          decoding="async"
           draggable={false}
         />
-        <span
-          className="absolute top-3 left-3 font-mono text-[10px] tracking-[0.2em]"
-          style={{ color: "#FFFFFF", textShadow: "0 0 6px rgba(0,0,0,0.5)" }}
-        >
-          {String(index + 1).padStart(2, "0")} / FILE:{project.id.toUpperCase()}
-        </span>
         {project.image && (
           <span
             className="absolute bottom-3 right-3 flex items-center justify-center"
@@ -99,11 +98,16 @@ export default function ProjectCard({ project, index, isLeft }: ProjectCardProps
               src={project.image}
               alt=""
               style={{ width: 24, height: 24, objectFit: "contain" }}
+              decoding="async"
               draggable={false}
             />
           </span>
         )}
       </button>
+      <div className="flex items-center justify-between mb-4">
+        <span className="mark-caption">{String(index + 1).padStart(2, "0")} / {project.id}</span>
+        <span className="mark-caption">{code}</span>
+      </div>
 
       {/* Title in the display voice */}
       <h3
@@ -137,63 +141,25 @@ export default function ProjectCard({ project, index, isLeft }: ProjectCardProps
         {project.description}
       </p>
 
-      {/* Tags */}
-      <div className="flex flex-wrap gap-2 mb-5">
-        {project.tags.map((tag) => (
-          <span
-            key={tag}
-            className="font-mono text-[10px] tracking-wider uppercase px-2 py-0.5"
-            style={{ color: "#333333", backgroundColor: "rgba(0, 153, 255, 0.06)" }}
-          >
-            {tag}
-          </span>
-        ))}
-      </div>
+      {/* Stack as a typed list */}
+      <p className="typed-list mb-5">{project.tags.map((t) => t.toLowerCase()).join(" / ")}</p>
 
       {/* Links */}
-      <div className="flex items-center gap-5">
-        <button
-          type="button"
-          onClick={openCase}
-          className="font-mono text-[12px] tracking-wide"
-          style={{ color: "#0099FF", background: "none", border: "none", cursor: "pointer", padding: 0 }}
-        >
-          Open case file &rarr;
+      <div className="flex items-center gap-6">
+        <button type="button" onClick={openCase} className="typed-link">
+          open case file &rarr;
         </button>
         {project.url && (
-          <a
-            href={project.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-mono text-[12px] tracking-wide transition-colors hover:opacity-70"
-            style={{ color: "#333333" }}
-          >
-            Live
+          <a href={project.url} target="_blank" rel="noopener noreferrer" className="typed-link">
+            live &#8599;
           </a>
         )}
         {project.github && (
-          <a
-            href={project.github}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-mono text-[12px] tracking-wide transition-colors hover:opacity-70"
-            style={{ color: "#333333" }}
-          >
-            Source
+          <a href={project.github} target="_blank" rel="noopener noreferrer" className="typed-link">
+            source &#8599;
           </a>
         )}
       </div>
-
-      {/* Accent border assembles on hover */}
-      {!isMobile && (
-        <motion.div
-          className="project-card-accent absolute -left-4 top-0 w-px h-full origin-top"
-          style={{ backgroundColor: "rgba(0, 153, 255, 0.2)" }}
-          initial={{ scaleY: 0 }}
-          animate={isInView ? { scaleY: 1 } : {}}
-          transition={{ duration: 0.8, delay: 0.3 }}
-        />
-      )}
     </motion.div>
   );
 }

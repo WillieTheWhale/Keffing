@@ -4,198 +4,128 @@ import { useMemo, useEffect, useRef, memo } from "react";
 import { useMounted } from "@/hooks/useMounted";
 import { useStore } from "@/lib/store";
 import { mulberry32 } from "@/lib/generative";
-import { generateFragments, CLIP_SHAPES } from "@/lib/fragments";
+import { generateFragments, clipFor } from "@/lib/fragments";
+import { TEXTURE_SEED } from "@/lib/composition";
+import { diveRef } from "@/lib/scroll";
+import { bindLayerOpacity } from "@/lib/tuning";
+import { windowVis } from "@/lib/window";
 
-/* ─── types ──────────────────────────────────────────────────────── */
-
-interface SkyBlockData {
-  id: string;
-  src: string;
-  x: number;       // % of viewport width
-  y: number;       // % of viewport height (can exceed 100% for deep fragments)
-  width: number;   // px
-  height: number;  // px
-  clipPath: string;
-  parallaxFactor: number;
-  opacity: number;
-  zIndex: number;
-}
+/**
+ * CSS sky-photograph layer — the fallback for mobile / tablet / reduced
+ * motion / no WebGL. Same hand-placed composition as the GL layer; each
+ * photo is a screen-printed rectangle with a slow Lissajous drift.
+ */
 
 interface FragmentAnim {
-  // Drift oscillation (sinusoidal Lissajous path — never resets)
-  driftAmpX: number;   // px horizontal amplitude
-  driftAmpY: number;   // px vertical amplitude
-  driftFreqX: number;  // Hz
-  driftFreqY: number;  // Hz (deliberately different from X for organic path)
-  driftPhaseX: number; // radians
-  driftPhaseY: number;
-
-  // Opacity breathing
-  baseOpacity: number;
-  opacityAmp: number;  // how much opacity varies (±)
-  fadeFreq: number;     // Hz
-  fadePhase: number;
-
-  // Scale breathing (very subtle)
-  scaleAmp: number;    // ±
-  scaleFreq: number;   // Hz
-  scalePhase: number;
-
-  // Scroll parallax
+  driftAmpX: number; driftAmpY: number; driftFreqX: number; driftFreqY: number; driftPhaseX: number; driftPhaseY: number;
+  baseOpacity: number; opacityAmp: number; fadeFreq: number; fadePhase: number;
+  scaleAmp: number; scaleFreq: number; scalePhase: number;
   parallaxFactor: number;
 }
 
-/* ─── constants ──────────────────────────────────────────────────── */
-
 const TWO_PI = Math.PI * 2;
-
-/* ─── component ──────────────────────────────────────────────────── */
 
 const SkyFragmentsCSS = memo(function SkyFragmentsCSS() {
   const mounted = useMounted();
   const deviceTier = useStore((s) => s.deviceTier);
   const reducedMotion = useStore((s) => s.reducedMotion);
-  const seed = useStore((s) => s.seed);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  /* ── generate fragment layout data ──────────────────────────── */
-  const blocks = useMemo(
-    () =>
-      generateFragments(seed, deviceTier).map((f) => ({
-        id: f.id,
-        src: f.src,
-        x: f.x,
-        y: f.y,
-        width: f.width,
-        height: f.height,
-        clipPath: CLIP_SHAPES[f.clipIndex],
-        parallaxFactor: f.parallaxFactor,
-        opacity: f.opacity,
-        zIndex: f.zIndex,
-      })),
-    [deviceTier, seed]
-  );
+  const blocks = useMemo(() => generateFragments(deviceTier), [deviceTier]);
 
-  /* ── animation loop ────────────────────────────────────────── */
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-
     const els = container.querySelectorAll<HTMLElement>("[data-parallax]");
     const count = els.length;
     if (count === 0) return;
 
-    // ── reducedMotion: scroll parallax only ──
+    const atVH = Array.from(els, (el) => parseFloat(el.dataset.at || "0"));
     if (reducedMotion) {
       let ticking = false;
       const update = () => {
         const sy = window.scrollY;
+        const svh = sy / Math.max(1, window.innerHeight);
         for (let i = 0; i < count; i++) {
           const f = parseFloat(els[i].dataset.parallax || "0");
           els[i].style.transform = `translateY(${sy * -f}px)`;
+          els[i].style.opacity = (parseFloat(els[i].dataset.baseOpacity || "0.7") * windowVis(svh, atVH[i])).toFixed(3);
         }
         ticking = false;
       };
       const onScroll = () => {
-        if (!ticking) {
-          ticking = true;
-          requestAnimationFrame(update);
-        }
+        if (!ticking) { ticking = true; requestAnimationFrame(update); }
       };
       window.addEventListener("scroll", onScroll, { passive: true });
       update();
       return () => window.removeEventListener("scroll", onScroll);
     }
 
-    // ── build per-fragment animation state (seeded, deterministic) ──
-    const animRng = mulberry32(seed + 777);
+    const animRng = mulberry32(TEXTURE_SEED + 777);
     const anims: FragmentAnim[] = [];
-    const driftScale =
-      deviceTier === "mobile" ? 0.5 : deviceTier === "tablet" ? 0.75 : 1.0;
-
+    const driftScale = deviceTier === "mobile" ? 0.5 : deviceTier === "tablet" ? 0.75 : 1.0;
     for (let i = 0; i < count; i++) {
-      const baseOpacity = parseFloat(els[i].dataset.baseOpacity || "0.7");
-
       anims.push({
-        // Drift: unique frequencies per fragment → never synchronized.
-        // Frequency range ~0.015–0.055 Hz = one full cycle every 18–66 seconds.
-        driftAmpX: (25 + animRng() * 65) * driftScale,    // 25–90px × scale
-        driftAmpY: (12 + animRng() * 30) * driftScale,    // 12–42px × scale
+        driftAmpX: (18 + animRng() * 40) * driftScale,
+        driftAmpY: (8 + animRng() * 22) * driftScale,
         driftFreqX: 0.015 + animRng() * 0.04,
         driftFreqY: 0.012 + animRng() * 0.035,
         driftPhaseX: animRng() * TWO_PI,
         driftPhaseY: animRng() * TWO_PI,
-
-        // Opacity breathing: gentle ± variation around baseOpacity
-        baseOpacity,
-        opacityAmp: 0.08 + animRng() * 0.18,  // ±0.08–0.26
-        fadeFreq: 0.01 + animRng() * 0.025,    // cycle every 28–100s
+        baseOpacity: parseFloat(els[i].dataset.baseOpacity || "0.7"),
+        opacityAmp: 0.06 + animRng() * 0.12,
+        fadeFreq: 0.01 + animRng() * 0.025,
         fadePhase: animRng() * TWO_PI,
-
-        // Scale breathing: very subtle
-        scaleAmp: 0.015 + animRng() * 0.04,    // ±1.5–5.5%
-        scaleFreq: 0.008 + animRng() * 0.018,  // cycle every 38–125s
+        scaleAmp: 0.01 + animRng() * 0.03,
+        scaleFreq: 0.008 + animRng() * 0.018,
         scalePhase: animRng() * TWO_PI,
-
         parallaxFactor: parseFloat(els[i].dataset.parallax || "0"),
       });
     }
 
-    // ── RAF loop ──
     let rafId = 0;
     let startTime = 0;
-
+    let lastDive = -1;
     const tick = (timestamp: number) => {
       if (startTime === 0) startTime = timestamp;
-      const t = (timestamp - startTime) / 1000; // seconds elapsed
+      const t = (timestamp - startTime) / 1000;
       const sy = window.scrollY;
-
+      const svh = sy / Math.max(1, window.innerHeight);
+      const dv = diveRef.current;
+      if (dv !== lastDive) {
+        lastDive = dv;
+        container.style.transform = dv > 0 ? `scale(${(1 + dv * 1.35).toFixed(4)})` : "";
+      }
       for (let i = 0; i < count; i++) {
         const a = anims[i];
         const el = els[i];
-
-        // Sinusoidal drift (Lissajous-like path, never resets)
         const dx = Math.sin(t * a.driftFreqX * TWO_PI + a.driftPhaseX) * a.driftAmpX;
         const dy = Math.sin(t * a.driftFreqY * TWO_PI + a.driftPhaseY) * a.driftAmpY;
-
-        // Scroll parallax
         const parallaxY = sy * -a.parallaxFactor;
-
-        // Scale breathing
         const scale = 1 + Math.sin(t * a.scaleFreq * TWO_PI + a.scalePhase) * a.scaleAmp;
-
-        // Opacity breathing: clamp to [0.05, 1.0]
-        const rawOpacity =
-          a.baseOpacity +
-          Math.sin(t * a.fadeFreq * TWO_PI + a.fadePhase) * a.opacityAmp;
-        const opacity = rawOpacity < 0.05 ? 0.05 : rawOpacity > 1 ? 1 : rawOpacity;
-
-        // Compose transform (GPU-accelerated)
+        const rawOpacity = a.baseOpacity + Math.sin(t * a.fadeFreq * TWO_PI + a.fadePhase) * a.opacityAmp;
         el.style.transform = `translate(${dx}px, ${dy + parallaxY}px) scale(${scale})`;
-        el.style.opacity = String(opacity);
+        el.style.opacity = ((rawOpacity < 0.05 ? 0.05 : rawOpacity > 1 ? 1 : rawOpacity) * windowVis(svh, atVH[i])).toFixed(3);
       }
-
       rafId = requestAnimationFrame(tick);
     };
-
     rafId = requestAnimationFrame(tick);
-
     return () => cancelAnimationFrame(rafId);
   }, [blocks, reducedMotion, deviceTier]);
 
-  /* ── render ─────────────────────────────────────────────────── */
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    return bindLayerOpacity("fragments", el);
+  }, [mounted]);
+
   if (!mounted) return null;
 
   return (
     <div
       ref={containerRef}
       className="fixed inset-0 pointer-events-none overflow-hidden"
-      style={{
-        zIndex: 2,
-        opacity: "var(--density-fragments, 1)",
-        transform: "scale(calc(1 + var(--dive, 0) * 1.35))",
-        transformOrigin: "70% 30%",
-      }}
+      style={{ zIndex: 2, transformOrigin: "66% 31%" }}
       aria-hidden="true"
     >
       {blocks.map((block) => (
@@ -203,25 +133,21 @@ const SkyFragmentsCSS = memo(function SkyFragmentsCSS() {
           key={block.id}
           data-parallax={block.parallaxFactor}
           data-base-opacity={block.opacity}
-          className="absolute overflow-hidden"
+          data-at={block.atVH}
+          className="absolute"
           style={{
             left: `${block.x}%`,
             top: `${block.y}%`,
             width: `${block.width}px`,
-            height: `${block.height}px`,
-            clipPath: block.clipPath,
             opacity: block.opacity,
             zIndex: block.zIndex,
             willChange: "transform, opacity",
           }}
         >
-          <img
-            src={block.src}
-            alt=""
-            className="w-full h-full object-cover"
-            loading="lazy"
-            draggable={false}
-          />
+          <div className="sky-print" style={{ height: `${block.height}px`, clipPath: clipFor(block.skew) }}>
+            <img src={block.src} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" draggable={false} />
+          </div>
+          {block.caption && <span className="sky-caption sky-caption-static">{block.caption}</span>}
         </div>
       ))}
     </div>

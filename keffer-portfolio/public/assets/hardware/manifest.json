@@ -1,0 +1,97 @@
+[
+  {
+    "slug": "macbook-pro-m4-max",
+    "triangles": 7158,
+    "meshes": 6,
+    "movingAssemblies": [
+      "Display_hinge"
+    ],
+    "bytes": 535072
+  },
+  {
+    "slug": "panasonic-cf-sx1",
+    "triangles": 7762,
+    "meshes": 7,
+    "movingAssemblies": [
+      "Display_hinge"
+    ],
+    "bytes": 579292
+  },
+  {
+    "slug": "bose-qc35",
+    "triangles": 4012,
+    "meshes": 7,
+    "movingAssemblies": [
+      "Earcup_L",
+      "Earcup_R"
+    ],
+    "bytes": 318888
+  },
+  {
+    "slug": "airpods-pro-3",
+    "triangles": 10808,
+    "meshes": 4,
+    "movingAssemblies": [
+      "Case_lid_hinge",
+      "Earbud_L",
+      "Earbud_R"
+    ],
+    "bytes": 1126788
+  },
+  {
+    "slug": "iphone-16-pro-max",
+    "triangles": 1684,
+    "meshes": 4,
+    "movingAssemblies": [
+      "Device"
+    ],
+    "bytes": 169436
+  },
+  {
+    "slug": "new-2ds-xl-hylian",
+    "triangles": 2269,
+    "meshes": 6,
+    "movingAssemblies": [
+      "Display_hinge"
+    ],
+    "bytes": 207352
+  },
+  {
+    "slug": "dsi-xl-bronze",
+    "triangles": 4004,
+    "meshes": 6,
+    "movingAssemblies": [
+      "Display_hinge"
+    ],
+    "bytes": 315756
+  },
+  {
+    "slug": "mac-mini-2024",
+    "triangles": 1290,
+    "meshes": 3,
+    "movingAssemblies": [
+      "Device"
+    ],
+    "bytes": 130312
+  },
+  {
+    "slug": "nintendo-switch",
+    "triangles": 2656,
+    "meshes": 7,
+    "movingAssemblies": [
+      "JoyCon_Left",
+      "JoyCon_Right"
+    ],
+    "bytes": 287796
+  },
+  {
+    "slug": "breville-barista-express",
+    "triangles": 9530,
+    "meshes": 14,
+    "movingAssemblies": [
+      "Steam_wand_swivel",
+      "Device"
+    ],
+    "bytes": 712484
+  }
+]

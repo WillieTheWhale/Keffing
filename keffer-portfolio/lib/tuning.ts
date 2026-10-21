@@ -55,24 +55,60 @@ function computeTargets(progress: number, reducedMotion: boolean) {
   if (densityOverride != null) {
     return { density: densityOverride, tune: 0 };
   }
-  const rawDensity = densityAt(progress);
-  const rawTune = reducedMotion ? 0 : tuningAt(progress);
-  const speed = Math.min(1, Math.abs(scrollVelocityRef.current) / VELOCITY_REF);
-  const peakScale = reducedMotion ? 0 : 1 - speed * (1 - MIN_PEAK_SCALE);
-  return { density: rawDensity, tune: rawTune * peakScale };
+  // The section-boundary "beat" (implosion + near-black flash) is retired
+  // (2026-09-08): it read as a flash between sections. Density still eases
+  // between bands via the time-constant smoothing below; tune stays 0.
+  void tuningAt; void scrollVelocityRef; void VELOCITY_REF; void MIN_PEAK_SCALE; void reducedMotion;
+  return { density: densityAt(progress), tune: 0 };
 }
 
-function writeCssVars(density: number, tune: number) {
-  const root = document.documentElement;
+// ─── Layer opacity registry ─────────────────────────────────
+//
+// These values used to be written as --density-* / --tune custom properties
+// on <html> every frame. Custom properties inherit, so each write
+// invalidated style for every one of the ~600 absolutely-positioned overlay
+// nodes — measured at ~65% of main-thread time during scroll, far more than
+// the canvas itself. Now each ambient layer binds its container here and
+// receives a plain `opacity` write: six elements, compositor-only.
+
+export type LayerKey = "fragments" | "glitch" | "dust" | "rects" | "atmosphere" | "beat";
+
+const layerTargets: Record<LayerKey, Set<HTMLElement>> = {
+  fragments: new Set(), glitch: new Set(), dust: new Set(), rects: new Set(), atmosphere: new Set(), beat: new Set(),
+};
+const layerValues: Record<LayerKey, number> = { fragments: 1, glitch: 1, dust: 1, rects: 1, atmosphere: 1, beat: 0 };
+let pinned: Partial<Record<LayerKey, number>> | null = null;
+
+function setLayer(key: LayerKey, v: number) {
+  if (Math.abs(layerValues[key] - v) < 0.0005) return;
+  layerValues[key] = v;
+  const s = v.toFixed(3);
+  for (const el of layerTargets[key]) el.style.opacity = s;
+}
+
+/** Bind an ambient layer's container; it gets the current value immediately. Returns unbind. */
+export function bindLayerOpacity(key: LayerKey, el: HTMLElement): () => void {
+  layerTargets[key].add(el);
+  el.style.opacity = layerValues[key].toFixed(3);
+  return () => { layerTargets[key].delete(el); };
+}
+
+/** Pin explicit per-layer values (detail pages); null resumes the choreography. */
+export function pinLayers(values: Partial<Record<LayerKey, number>> | null) {
+  pinned = values;
+  if (values) for (const [k, v] of Object.entries(values)) setLayer(k as LayerKey, v as number);
+}
+
+function writeLayers(density: number, tune: number) {
+  if (pinned) return;
   const L = layerDensities(density);
   const duck = 1 - 0.92 * tune;
-  root.style.setProperty("--density", density.toFixed(3));
-  root.style.setProperty("--tune", tune.toFixed(3));
-  root.style.setProperty("--density-fragments", (L.fragments * duck).toFixed(3));
-  root.style.setProperty("--density-glitch", (L.glitch * duck).toFixed(3));
-  root.style.setProperty("--density-dust", (L.dust * duck).toFixed(3));
-  root.style.setProperty("--density-rects", (L.rects * duck).toFixed(3));
-  root.style.setProperty("--density-atmosphere", (L.atmosphere * duck).toFixed(3));
+  setLayer("fragments", L.fragments * duck);
+  setLayer("glitch", L.glitch * duck);
+  setLayer("dust", L.dust * duck);
+  setLayer("rects", L.rects * duck);
+  setLayer("atmosphere", L.atmosphere * duck);
+  setLayer("beat", tune * 0.88);
 }
 
 function stepSmoothing(ts: number): boolean {
@@ -98,7 +134,7 @@ function stepSmoothing(ts: number): boolean {
   smoothedTuneRef.current += (targetTune - smoothedTuneRef.current) * alpha;
   smoothedDensityRef.current += (targetDensity - smoothedDensityRef.current) * alpha;
 
-  writeCssVars(smoothedDensityRef.current, smoothedTuneRef.current);
+  writeLayers(smoothedDensityRef.current, smoothedTuneRef.current);
 
   const settled =
     smoothedTuneRef.current < 0.002 &&
@@ -129,7 +165,7 @@ function ensureLoop() {
  * settle window after scrolling stops, so the beat always finishes playing
  * out even if the user stops flicking mid-transition.
  */
-export function applyDensityVars(progress: number, _reducedMotion = false) {
+export function applyDensityVars(progress: number) {
   lastProgress = progress;
   ensureLoop();
 }
