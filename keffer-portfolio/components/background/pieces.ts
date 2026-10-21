@@ -12,6 +12,7 @@ import { createNoise3D } from "simplex-noise";
 import { mulberry32 } from "@/lib/generative";
 import type { Kind, Profile, RibbonSpec, TubeOpts, V3 } from "./geometry";
 import { nucleus, pribbon, sheaf, tube, W_CABLE, W_MED, W_WIRE, type PlateSpec } from "./porcelain";
+import { withBase } from "@/lib/basePath";
 
 export interface ShardSpec {
   pos: V3;
@@ -417,7 +418,7 @@ function heroSet(): PieceSet {
       // a hairline coiling around the needle
       { arm: 4, u0: 0.04, u1: 0.7, angle: 0, gap: 0.062, width: W_WIRE, kind: 4, spin: 4.5, tube: { taper: [0.03, 0.08], start: "cut", end: "point" } },
     ],
-    graphite: { src: "/assets/background/graphite-nucleus.png", pos: [1.5, 0.48, -0.08], size: [1.5, 1.65], alpha: 1.0 },
+    graphite: { src: withBase("/assets/background/graphite-nucleus.png"), pos: [1.5, 0.48, -0.08], size: [1.5, 1.65], alpha: 1.0 },
   };
 }
 
@@ -488,7 +489,7 @@ function contactSet(): PieceSet {
       { arm: 6, u0: 0.1, u1: 0.9, angle: 0.3, gap: 0.05, peel: [0.03, 0.1], width: W_WIRE, kind: 4, tube: { taper: [0.05, 0.1], start: "cut", end: "point" } },
       { arm: 5, u0: 0.18, u1: 0.62, angle: Math.PI * 0.5, gap: 0.16, peel: [0.12, 0.3], width: W_CABLE, kind: 3, tube: { taper: [0.08, 0.2], start: "cut", end: "point" } },
     ],
-    graphite: { src: "/assets/background/graphite-contact.png", pos: [0.98, -0.32, -0.12], size: [1.2, 1.1], alpha: 0.92 },
+    graphite: { src: withBase("/assets/background/graphite-contact.png"), pos: [0.98, -0.32, -0.12], size: [1.2, 1.1], alpha: 0.92 },
   };
 }
 

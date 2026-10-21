@@ -19,12 +19,14 @@ import type { SectionId } from "./pieces";
 import { AsciiField, CropMarks, Crease, RingStar, Schematic, TitleBlock } from "./print";
 import { lyricsPool } from "@/content/lyrics";
 import { ASCII_SKY } from "./asciiSky";
+import { withBase } from "@/lib/basePath";
 
 const BLUE = "#7d9fdb";
 const BLUE_2 = "#8eacdf";
 const PAPER = "#f2f1ec";
 const INK = "#1b1d22";
-const P = "/assets/background/panels/";
+const P = withBase("/assets/background/panels/");
+const GRAIN = `url(${withBase("/assets/background/paper-grain.png")})`;
 
 type Layer = "under" | "over";
 
@@ -71,7 +73,7 @@ function Panel({ src, shadow = true, grain = true }: { src: string; shadow?: boo
     <div style={{ position: "absolute", inset: 0, boxShadow: shadow ? "0 1px 0 rgba(0,0,0,0.05), 6px 10px 22px -10px rgba(20,24,40,0.28)" : undefined }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={P + src} alt="" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-      {grain && <div style={{ position: "absolute", inset: 0, backgroundImage: "url(/assets/background/paper-grain.png)", backgroundSize: "256px 256px", mixBlendMode: "multiply", opacity: 0.6 }} />}
+      {grain && <div style={{ position: "absolute", inset: 0, backgroundImage: GRAIN, backgroundSize: "256px 256px", mixBlendMode: "multiply", opacity: 0.6 }} />}
     </div>
   );
 }
@@ -82,7 +84,7 @@ function Block({ color = BLUE, to, grain = true }: { color?: string; to?: string
       position: "absolute", inset: 0,
       background: to ? `linear-gradient(180deg, ${color}, ${to})` : color,
     }}>
-      {grain && <div style={{ position: "absolute", inset: 0, backgroundImage: "url(/assets/background/paper-grain.png)", backgroundSize: "256px 256px", mixBlendMode: "multiply", opacity: 0.9 }} />}
+      {grain && <div style={{ position: "absolute", inset: 0, backgroundImage: GRAIN, backgroundSize: "256px 256px", mixBlendMode: "multiply", opacity: 0.9 }} />}
     </div>
   );
 }
@@ -373,7 +375,7 @@ const PrintLayersImpl = forwardRef<PrintHandle, { vclass: ViewClass }>(function 
     <>
       {/* paper ground: never moves */}
       <div className="fixed inset-0" style={{ zIndex: 0, background: PAPER }}>
-        <div style={{ position: "absolute", inset: 0, backgroundImage: "url(/assets/background/paper-grain.png)", backgroundSize: "256px 256px", mixBlendMode: "multiply", opacity: 0.85 }} />
+        <div style={{ position: "absolute", inset: 0, backgroundImage: GRAIN, backgroundSize: "256px 256px", mixBlendMode: "multiply", opacity: 0.85 }} />
         <div style={{ position: "absolute", inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(20,24,40,0.018) 0 1px, transparent 1px 3px)", opacity: 0.8 }} />
       </div>
       <div ref={under} className="fixed inset-0 overflow-hidden" style={{ zIndex: 1 }}>{underNodes}</div>

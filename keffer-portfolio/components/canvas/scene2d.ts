@@ -4,6 +4,7 @@
 
 import type { Pt, RawScene, WidthFn } from "./scene";
 import { deform, samplePath, sampleQuadratic } from "./scene";
+import { withBase } from "@/lib/basePath";
 
 // ─── Brush stroke textures ──────────────────────────────────
 
@@ -12,7 +13,7 @@ let _strokeTexturesLoaded = false;
 
 export function loadStrokeTextures(): Promise<void> {
   if (_strokeTexturesLoaded) return Promise.resolve();
-  const paths = ["/assets/textures/brush/stroke.webp", "/assets/textures/brush/stroke2.webp"];
+  const paths = ["/assets/textures/brush/stroke.webp", "/assets/textures/brush/stroke2.webp"].map(withBase);
   return new Promise((resolve) => {
     let loaded = 0;
     _strokeTextures = paths.map((src) => {

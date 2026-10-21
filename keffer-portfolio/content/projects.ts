@@ -1,3 +1,4 @@
+import { withBase } from "@/lib/basePath";
 // Project & Experience Data
 
 export interface Project {
@@ -25,7 +26,7 @@ export const experience: Project[] = [
       "Blockd is an enterprise-grade interview security platform that combines a custom Chromium browser with AI-powered anti-cheating detection to preserve the integrity of remote interviews. The platform deploys a suite of real-time monitoring tools, including eye tracking via MediaPipe, multi-LLM answer semantic analysis, mode collapse screening, process detection for screen recording software, VM detection, and window focus tracking to identify candidates who may be using unauthorized assistance during live interviews. On the interviewer side, a React-based web dashboard provides reports on security events, gaze heatmaps, AI detection confidence scores, and live video feeds in real time, giving hiring teams full transparency into each session. Built on a microservices architecture with eight backend services, WebRTC video streaming, WebSocket real-time communication, and a Kubernetes-ready infrastructure.",
     tags: ["Chromium", "MediaPipe", "WebRTC", "Microservices", "React", "Kubernetes"],
     url: "https://www.linkedin.com/company/blockdcompany/",
-    image: "/assets/logos/blockd.png",
+    image: withBase("/assets/logos/blockd.png"),
     sceneHints: {
       burstDirection: -30,
       accentDensity: 0.2,
@@ -39,7 +40,7 @@ export const experience: Project[] = [
       "The Experimental Engineering Lab (EEL) is an undergraduate research lab at UNC dedicated to hands-on engineering projects and interdisciplinary collaboration. I have been responsible for designing, developing, and maintaining the site, managing its deployment on Red Hat OpenShift through an automated CI/CD pipeline.",
     tags: ["Web Development", "OpenShift", "CI/CD"],
     url: "https://eel.unc.edu",
-    image: "/assets/logos/eel.jpg",
+    image: withBase("/assets/logos/eel.jpg"),
     sceneHints: {
       burstDirection: 45,
       accentDensity: 0.15,
@@ -83,7 +84,7 @@ const projectCatalog = [
       "A desktop app and MCP-style generation system that turns natural-language prompts into complete Roblox games. Google Gemini agents plan, script, validate, preview, and export publish-ready .rbxlx files through an Electron and React workspace backed by TypeScript and Rust.",
     tags: ["TypeScript", "Rust", "Electron", "MCP", "Gemini", "React"],
     github: "https://github.com/WillieTheWhale/Brick_Studio",
-    image: "/assets/logos/brick-studio.png",
+    image: withBase("/assets/logos/brick-studio.png"),
   },
   {
     id: "heelcode",
@@ -100,7 +101,7 @@ const projectCatalog = [
       "Bragg-Peak is a careful research toolkit for understanding the Bragg peak, the point near the end of a proton beam’s path where energy delivery rises sharply. Its physics engine can simulate beams in water and layered materials, while its OpenGATE and Geant4 tools provide a separate high-detail reference for comparison. On top of that foundation, BraggTransporter explores machine learning that can speed up repeated studies without hiding uncertainty or skipping validation. Every experiment preserves its inputs and outputs so a graph can be traced back to the numbers and settings that produced it. The project focuses on repeatable evidence, clear limits, and honest reporting.",
     tags: ["Python", "PyTorch", "Monte Carlo", "OpenGATE", "Geant4"],
     github: "https://github.com/WillieTheWhale/Bragg-Peak",
-    coverImage: "/assets/projects/bragg-peak.jpg",
+    coverImage: withBase("/assets/projects/bragg-peak.jpg"),
     coverImageAlt:
       "Proton-therapy treatment apparatus with alignment lasers over a head immobilization mask",
   },
@@ -120,7 +121,7 @@ const projectCatalog = [
     tags: ["TypeScript", "Python", "PyTorch", "Chromium", "Docker"],
     github: "https://github.com/WillieTheWhale/Blockd",
     url: "https://www.linkedin.com/company/blockdcompany/",
-    image: "/assets/logos/blockd.png",
+    image: withBase("/assets/logos/blockd.png"),
   },
   {
     id: "llm-image-prompt-injection",
@@ -231,7 +232,7 @@ const projectCatalog = [
     tags: ["JavaScript", "Docker", "OpenShift", "CI/CD"],
     github: "https://github.com/WillieTheWhale/EEL_Website",
     url: "https://eel.unc.edu",
-    image: "/assets/logos/eel.jpg",
+    image: withBase("/assets/logos/eel.jpg"),
   },
   {
     id: "harimau-theme",

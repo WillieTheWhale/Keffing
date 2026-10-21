@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { useStore } from "@/lib/store";
 import { MiiMotion, type MiiPose } from "@/lib/mii-motion";
+import { withBase } from "@/lib/basePath";
 
 export default function MiiWave() {
   const hostRef = useRef<HTMLButtonElement>(null);
@@ -106,8 +107,8 @@ export default function MiiWave() {
         renderer.toneMapping = THREE.NoToneMapping;
         const loader = new GLTFLoader();
         const [bodyAsset, headAsset] = await Promise.all([
-          loader.loadAsync("/assets/mii/body.glb"),
-          loader.loadAsync("/assets/mii/william-head.glb"),
+          loader.loadAsync(withBase("/assets/mii/body.glb")),
+          loader.loadAsync(withBase("/assets/mii/william-head.glb")),
         ]);
         body = bodyAsset.scene;
         head = headAsset.scene;
@@ -233,7 +234,7 @@ export default function MiiWave() {
     <button ref={hostRef} type="button" className="mii-wave" onClick={() => playRef.current()}
       aria-label="Play William's Mii celebration" aria-describedby="mii-caption"
       title="Click for a little celebration"
-      style={{ width: "100%", aspectRatio: "3 / 4", backgroundImage: ready ? "none" : "url(/assets/mii/neutral.webp)" }}>
+      style={{ width: "100%", aspectRatio: "3 / 4", backgroundImage: ready ? "none" : `url(${withBase("/assets/mii/neutral.webp")})` }}>
       <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block" }} aria-hidden="true" />
     </button>
   );

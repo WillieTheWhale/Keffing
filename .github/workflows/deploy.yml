@@ -33,13 +33,19 @@ jobs:
           cache-dependency-path: keffer-portfolio/package-lock.json
 
       - name: Setup Pages
+        id: pages
         uses: actions/configure-pages@v5
 
       - name: Install dependencies
         run: npm ci
 
+      # base_path is "" with a custom domain and "/<repo>" on github.io, so the
+      # same build works either way (next.config.ts, lib/basePath.ts).
       - name: Build
         run: npx next build
+        env:
+          NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          NEXT_PUBLIC_SITE_URL: ${{ steps.pages.outputs.base_url }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

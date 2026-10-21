@@ -3,6 +3,7 @@
 // the same composition.
 
 import { PHOTOS, placedTop } from "./composition";
+import { withBase } from "@/lib/basePath";
 
 // Fragment layers use 800px thumbs (fragments render ≤450px wide) — W12.
 // Full-viewport moments (case hero bands, the Dive) use SKY_PHOTOS_FULL.
@@ -26,7 +27,7 @@ export const SKY_PHOTOS = [
   "/assets/sky/thumbs/sky-18.jpg",
   "/assets/sky/thumbs/sky-19.jpg",
   "/assets/sky/thumbs/sky-20.jpg",
-];
+].map(withBase);
 
 export const SKY_PHOTOS_FULL = SKY_PHOTOS.map((p) => p.replace("/thumbs/", "/"));
 

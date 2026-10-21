@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { mediaMusic, mediaGames } from "@/content/media";
 import styles from "./MediaGallery.module.css";
+import { withBase } from "@/lib/basePath";
 
 /**
  * The media catalogue: a shelf of record sleeves (cover art at full colour —
@@ -18,7 +19,7 @@ export default function MediaGallery() {
       <div className={styles.grid}>
         {mediaMusic.map((m, i) => {
           const cover = (
-            <Image src={`/assets/media/${m.id}.jpg`} alt={`${m.title} — ${m.by}, cover art`} width={800} height={800} unoptimized loading={i < 4 ? "eager" : "lazy"} />
+            <Image src={withBase(`/assets/media/${m.id}.jpg`)} alt={`${m.title} — ${m.by}, cover art`} width={800} height={800} unoptimized loading={i < 4 ? "eager" : "lazy"} />
           );
           return (
             <article key={m.id} className={styles.card}>

@@ -11,6 +11,7 @@ import FilmGrain from "@/components/overlay/glitch/FilmGrain";
 import AtmosphereLayer from "@/components/overlay/atmosphere/AtmosphereLayer";
 import { useViewport } from "@/hooks/useViewport";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
+import { withBase } from "@/lib/basePath";
 
 const LineCanvas = dynamic(
   () => import("@/components/canvas/LineCanvas"),
@@ -70,7 +71,7 @@ export default function DocumentPage({
                 transition={{ type: "spring", ...springs.gentle }}
               >
                 <a
-                  href="/"
+                  href={withBase("/")}
                   className="font-mono"
                   style={{
                     fontSize: "11px",
@@ -141,7 +142,7 @@ export default function DocumentPage({
                 transition={{ delay: 0.6, duration: 0.6 }}
               >
                 <a
-                  href="/"
+                  href={withBase("/")}
                   className="font-mono"
                   style={{
                     fontSize: "11px",

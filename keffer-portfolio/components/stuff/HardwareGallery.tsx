@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { hardwareDevices } from "@/content/hardware";
 import styles from "./HardwareGallery.module.css";
+import { withBase } from "@/lib/basePath";
 
 const HardwareCanvas = dynamic(() => import("./HardwareCanvas"), { ssr: false });
 
@@ -56,7 +57,7 @@ export default function HardwareGallery() {
                 onBlur={() => setFocused((id) => id === device.id ? null : id)}
                 onClick={() => { setHeld(isHeld ? null : device.id); if (isHeld) { setHovered(null); setFocused(null); } }}
                 onKeyDown={(event) => { if (event.key === "Escape") { setHeld(null); setHovered(null); setFocused(null); } }}>
-                <Image src={`/assets/hardware/${device.id}.png`} alt="" width={720} height={620}
+                <Image src={withBase(`/assets/hardware/${device.id}.png`)} alt="" width={720} height={620}
                   className={styles.poster} style={{ opacity: ready ? 0 : 1 }} loading={index < 3 ? "eager" : "lazy"} unoptimized />
                 <span className={styles.ground} aria-hidden="true" />
                 <span className={styles.action} aria-hidden="true">

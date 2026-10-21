@@ -14,6 +14,7 @@
 import * as THREE from "three";
 import type { Pt, RawScene, RawBrush, RawInk, WidthFn } from "./scene";
 import { samplePath, sampleQuadratic } from "./scene";
+import { withBase } from "@/lib/basePath";
 
 export function detectWebGL(): boolean {
   try {
@@ -427,8 +428,8 @@ export class SceneRendererGL {
 
     const loader = new THREE.TextureLoader();
     const onLoad = () => this.onTexturesLoaded?.();
-    this.matcapA = loader.load("/assets/textures/matcap-chrome-a.webp", onLoad);
-    this.matcapB = loader.load("/assets/textures/matcap-chrome-b.webp", onLoad);
+    this.matcapA = loader.load(withBase("/assets/textures/matcap-chrome-a.webp"), onLoad);
+    this.matcapB = loader.load(withBase("/assets/textures/matcap-chrome-b.webp"), onLoad);
     for (const t of [this.matcapA, this.matcapB]) {
       t.colorSpace = THREE.SRGBColorSpace;
       t.wrapS = THREE.ClampToEdgeWrapping;

@@ -1,3 +1,4 @@
+import { withBase } from "@/lib/basePath";
 // Background — ALLOY. Module-level state shared between this variant's
 // Background (the canvas) and its Dive (the finale's DOM). Plain mutable
 // object: read every frame, never rendered from.
@@ -9,7 +10,7 @@ export const alloyBus = {
   glFinale: false,
 };
 
-export const END_SKY = "/assets/background/end-sky.jpg";
+export const END_SKY = withBase("/assets/background/end-sky.jpg");
 
 /** Strength of the haze ("a breath on the glass") behind the end card's type,
  *  shared by the GL mirror and the DOM fallback sky. */

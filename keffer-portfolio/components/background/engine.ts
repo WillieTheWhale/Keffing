@@ -19,13 +19,14 @@ import { BREATH } from "./bus";
 import {
   BLUR_FRAG, CHROME_FRAG, COMPOSITE_FRAG, GRAPHITE_FRAG, GRAPHITE_VERT, MIRROR_FRAG, PORCELAIN_FRAG, QUAD_VERT, RIBBON_VERT, SHARD_VERT,
 } from "./shaders";
+import { withBase } from "@/lib/basePath";
 
 export const FOV = 32;
 const VIS_H = 2 * Math.tan(((FOV / 2) * Math.PI) / 180); // visible height per unit depth
 /** World units the camera travels per viewport-height of (camera) scroll. */
 const RATE = 0.6 * VIS_H * 10; // a depth-10 group moves at 0.6× content speed
 
-const A = "/assets/background/";
+const A = withBase("/assets/background/");
 
 export interface PageLayout {
   /** [top, height] in viewport heights, per section id. */

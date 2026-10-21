@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { hardwareDevices } from "@/content/hardware";
 import styles from "./HardwareGallery.module.css";
+import { withBase } from "@/lib/basePath";
 
 type Props = {
   hostRef: RefObject<HTMLDivElement | null>;
@@ -147,7 +148,7 @@ export default function HardwareCanvas({ hostRef, active, reducedMotion, onReady
       if (!id || !device || pending.has(id)) return;
       pending.add(id);
       try {
-        const asset = await loader.loadAsync(`/assets/hardware/${id}.glb`);
+        const asset = await loader.loadAsync(withBase(`/assets/hardware/${id}.glb`));
         if (disposed) { disposeModel(asset.scene); return; }
         if (!asset.animations.length) throw new Error(`Missing reveal animation: ${id}`);
         const scene = new THREE.Scene();
