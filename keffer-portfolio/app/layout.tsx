@@ -44,7 +44,7 @@ const serverMono = localFont({
 
 // SEO Metadata (§16)
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://williamkeffer.com"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://keffer.cafe"),
   title: "William Keffer — Computer Science × Mathematics × Machine Learning",
   description:
     "Portfolio of William Keffer. Junior at UNC Chapel Hill pursuing Computer Science and Mathematics. Research in adversarial machine learning, VLM security, and satellite-economic analysis.",
