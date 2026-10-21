@@ -8,6 +8,8 @@ export interface Project {
   url?: string;
   github?: string;
   image?: string;
+  coverImage?: string;
+  coverImageAlt?: string;
   sceneHints: {
     burstDirection: number;
     accentDensity: number;
@@ -90,6 +92,17 @@ const projectCatalog = [
       "A UNC-focused fork of OpenCode that connects student coding workflows to UNC Chapel Hill's PromptLab. It preserves a local coding-agent harness while routing model traffic through a secure local OpenAI-compatible daemon and the user's normal authenticated browser session.",
     tags: ["TypeScript", "Agent Tooling", "PromptLab", "OpenAI Compatible"],
     github: "https://github.com/WillieTheWhale/heelcode",
+  },
+  {
+    id: "bragg-peak",
+    title: "Bragg Peak",
+    description:
+      "Bragg-Peak is a careful research toolkit for understanding the Bragg peak, the point near the end of a proton beam’s path where energy delivery rises sharply. Its physics engine can simulate beams in water and layered materials, while its OpenGATE and Geant4 tools provide a separate high-detail reference for comparison. On top of that foundation, BraggTransporter explores machine learning that can speed up repeated studies without hiding uncertainty or skipping validation. Every experiment preserves its inputs and outputs so a graph can be traced back to the numbers and settings that produced it. The project focuses on repeatable evidence, clear limits, and honest reporting.",
+    tags: ["Python", "PyTorch", "Monte Carlo", "OpenGATE", "Geant4"],
+    github: "https://github.com/WillieTheWhale/Bragg-Peak",
+    coverImage: "/assets/projects/bragg-peak.jpg",
+    coverImageAlt:
+      "Proton-therapy treatment apparatus with alignment lasers over a head immobilization mask",
   },
   {
     id: "aperture",

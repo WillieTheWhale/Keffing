@@ -24,6 +24,8 @@ export default function CaseStudy({ project, kind }: CaseStudyProps) {
     () => SKY_PHOTOS_FULL[hashSlug(project.id) % SKY_PHOTOS_FULL.length],
     [project.id]
   );
+  const heroImage = project.coverImage ?? heroSky;
+  const heroImageAlt = project.coverImage ? project.coverImageAlt ?? project.title : "";
 
   return (
     <SeededPageShell
@@ -56,8 +58,8 @@ export default function CaseStudy({ project, kind }: CaseStudyProps) {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={heroSky}
-            alt=""
+            src={heroImage}
+            alt={heroImageAlt}
             className="w-full h-full object-cover"
             style={{ transform: "scale(1.06)" }}
             decoding="async"
