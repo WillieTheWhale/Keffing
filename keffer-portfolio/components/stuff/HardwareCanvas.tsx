@@ -104,19 +104,34 @@ export default function HardwareCanvas({ hostRef, active, reducedMotion, onReady
       camera.updateProjectionMatrix();
     };
 
+    // What the canvas shows now: each drawn exhibit's viewport inside it, at
+    // its progress. The canvas scrolls with the cards, so a scroll that brings
+    // no new exhibit into view and moves nothing needs no redraw.
+    let drawn = new Map<Exhibit, string>();
+    const visible: { exhibit: Exhibit; rect: DOMRect; at: string }[] = [];
     const render = (now: number) => {
       frame = 0;
       if (disposed || lost || document.hidden) { previous = 0; return; }
+      const area = host.getBoundingClientRect();
+      visible.length = 0;
+      let stale = drawn.size === 0;
+      for (const exhibit of exhibits) {
+        const rect = exhibit.element.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > window.innerHeight) continue;
+        const at = `${rect.left - area.left} ${area.bottom - rect.bottom} ${rect.width} ${rect.height}`;
+        const target = state.current.active === exhibit.id ? 1 : 0;
+        if (drawn.get(exhibit) !== `${at} ${exhibit.progress}` || exhibit.progress !== target) stale = true;
+        visible.push({ exhibit, rect, at });
+      }
+      if (!stale) { previous = 0; return; }
       const dt = previous ? Math.min((now - previous) / 1000, .05) : 1 / 60;
       previous = now;
-      const area = host.getBoundingClientRect();
       renderer.setScissorTest(false);
       renderer.clear();
       renderer.setScissorTest(true);
       let moving = false;
-      for (const exhibit of exhibits) {
-        const rect = exhibit.element.getBoundingClientRect();
-        if (rect.bottom < 0 || rect.top > window.innerHeight) continue;
+      drawn = new Map();
+      for (const { exhibit, rect, at } of visible) {
         const target = state.current.active === exhibit.id ? 1 : 0;
         const gap = target - exhibit.progress;
         exhibit.progress = state.current.reducedMotion || Math.abs(gap) < .001
@@ -133,6 +148,7 @@ export default function HardwareCanvas({ hostRef, active, reducedMotion, onReady
         renderer.setViewport(x, y, width, height);
         renderer.setScissor(x, y, width, height);
         renderer.render(exhibit.scene, exhibit.camera);
+        drawn.set(exhibit, `${at} ${exhibit.progress}`);
       }
       if (moving) frame = requestAnimationFrame(render);
       else previous = 0;
@@ -212,7 +228,8 @@ export default function HardwareCanvas({ hostRef, active, reducedMotion, onReady
     }, { rootMargin: "300px" });
     host.querySelectorAll<HTMLElement>("[data-hardware-id]").forEach((element) => observer.observe(element));
     const resize = () => {
-      renderer.setSize(host.clientWidth, host.clientHeight, false);
+      renderer.setSize(host.clientWidth, host.clientHeight, false); // clears the canvas
+      drawn = new Map();
       request();
     };
     const resizer = new ResizeObserver(resize);

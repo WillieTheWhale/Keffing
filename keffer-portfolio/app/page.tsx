@@ -13,7 +13,6 @@ import StuffSection from "@/components/overlay/sections/StuffSection";
 import ExperienceSection from "@/components/overlay/sections/ExperienceSection";
 import ContactSection from "@/components/overlay/sections/ContactSection";
 import Dive from "@/components/background/Dive";
-import PaperPicker from "@/components/background/PaperPicker";
 
 // The ALLOY background (components/background): liquid chrome and glass with
 // drawn porcelain in one three.js world, over its own paper, sky panels and
@@ -48,9 +47,6 @@ export default function Home() {
 
       {/* [z:70] Route veil — the tuning move for navigation (W9) */}
       <Veil />
-
-      {/* [z:60] Paper colour swatches — dev, or ?paper on any build */}
-      <PaperPicker />
 
       {/* [z:20] HTML content - scrollable sections */}
       <main id="main-content" className="content-layer">

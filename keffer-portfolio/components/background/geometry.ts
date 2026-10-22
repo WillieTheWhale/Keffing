@@ -20,7 +20,10 @@
 // Output is plain typed arrays merged per draw call: position, normal,
 // aData = (u along, s across, kind, seed), aSway (0 at root .. 1 at tip).
 
-import { CatmullRomCurve3, Vector3 } from "three";
+// three's own modules, not the package entry: this file also runs in the
+// geometry worker, which then carries only the curve math, not all of three
+import { CatmullRomCurve3 } from "three/src/extras/curves/CatmullRomCurve3.js";
+import { Vector3 } from "three/src/math/Vector3.js";
 
 export type V3 = [number, number, number];
 export type Profile = "lens" | "plano" | "tear" | "crescent" | "sheet" | "round";

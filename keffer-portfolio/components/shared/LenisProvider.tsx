@@ -1,24 +1,27 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import Lenis from "lenis";
-import { useScrollProgress, useMouseTracking } from "@/hooks/useScrollProgress";
+import { useStore } from "@/lib/store";
 import { useViewport } from "@/hooks/useViewport";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
-import { deriveDensityKeypointsFromDOM } from "@/lib/density";
-import { lenisRef as sharedLenisRef, scrollVelocityRef } from "@/lib/scroll";
+import { activeSectionIdAt, deriveSectionBandsFromDOM } from "@/lib/sectionBands";
+import { lenisRef, scrollVelocityRef } from "@/lib/scroll";
+
+// SectionNav subscribes to activeSection, so the store is only written when
+// the section in view changes (a handful of times per visit), not per frame.
+function updateActiveSection(progress: number) {
+  const activeSection = activeSectionIdAt(progress);
+  if (useStore.getState().activeSection !== activeSection) useStore.setState({ activeSection });
+}
 
 export default function LenisProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const lenisRef = useRef<Lenis | null>(null);
-  const { updateSceneFromScroll } = useScrollProgress();
-
-  // Initialize viewport detection and mouse tracking
+  // Initialize viewport detection and the reduced-motion flag
   useViewport();
-  useMouseTracking();
   useReducedMotion();
 
   useEffect(() => {
@@ -30,43 +33,41 @@ export default function LenisProvider({
     });
 
     lenisRef.current = lenis;
-    sharedLenisRef.current = lenis;
 
-    // Connect scroll to scene state
     lenis.on("scroll", (e: { progress: number; velocity: number }) => {
       scrollVelocityRef.current = e.velocity;
-      updateSceneFromScroll(e.progress);
+      updateActiveSection(e.progress);
     });
-    // Kick the choreography once so the ambient layers take their initial
-    // values before the first scroll event (matters when arriving back from
-    // a detail page that had them pinned).
+
+    // the section in view before this mount's first measurement
     const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-    updateSceneFromScroll(Math.min(1, window.scrollY / maxScroll));
+    updateActiveSection(Math.min(1, window.scrollY / maxScroll));
 
-    function raf(time: number) {
+    let raf = 0;
+    function frame(time: number) {
       lenis.raf(time);
-      requestAnimationFrame(raf);
+      raf = requestAnimationFrame(frame);
     }
+    raf = requestAnimationFrame(frame);
 
-    requestAnimationFrame(raf);
-
-    // Align the density choreography with real section positions (W3).
-    // Fonts/images can shift layout after mount, so measure again shortly
-    // after load and on resize.
-    deriveDensityKeypointsFromDOM();
-    const remeasure = () => deriveDensityKeypointsFromDOM();
+    // Align the section bands with real section positions. Fonts/images can
+    // shift layout after mount, so measure again shortly after load and on
+    // resize.
+    const remeasure = () => deriveSectionBandsFromDOM();
+    remeasure();
     const t1 = setTimeout(remeasure, 600);
     const t2 = setTimeout(remeasure, 2500);
     window.addEventListener("resize", remeasure);
 
     return () => {
+      cancelAnimationFrame(raf);
       lenis.destroy();
-      sharedLenisRef.current = null;
+      lenisRef.current = null;
       clearTimeout(t1);
       clearTimeout(t2);
       window.removeEventListener("resize", remeasure);
     };
-  }, [updateSceneFromScroll]);
+  }, []);
 
   return <>{children}</>;
 }

@@ -7,7 +7,6 @@ import { useStore } from "@/lib/store";
 import { useViewport } from "@/hooks/useViewport";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import Veil, { openVeil } from "@/components/shared/Veil";
-import PaperPicker from "@/components/background/PaperPicker";
 import type { PageKind } from "@/components/background/pieces";
 
 // The home page's ALLOY background, in its page arrangement (pieces.ts
@@ -29,8 +28,6 @@ interface SeededPageShellProps {
   seedKey: string;
   /** Which page arrangement of the background: project files or catalogues. */
   kind?: Extract<PageKind, "case" | "catalogue">;
-  /** Pinned line-canvas density while on this page. */
-  densityOverride?: number;
   /** Mono breadcrumb in the top bar, e.g. "Project file / blockd". */
   breadcrumb: string;
   children: React.ReactNode;
@@ -39,7 +36,6 @@ interface SeededPageShellProps {
 export default function SeededPageShell({
   seedKey,
   kind = "case",
-  densityOverride = 0.45,
   breadcrumb,
   children,
 }: SeededPageShellProps) {
@@ -50,13 +46,10 @@ export default function SeededPageShell({
   useReducedMotion();
 
   useEffect(() => {
-    useStore.setState({ densityOverride, entryDone: true });
+    useStore.setState({ entryDone: true });
     const t = setTimeout(() => setRevealed(true), 60);
-    return () => {
-      clearTimeout(t);
-      useStore.setState({ densityOverride: null });
-    };
-  }, [seedKey, densityOverride]);
+    return () => clearTimeout(t);
+  }, [seedKey]);
 
   const back = () => openVeil(() => router.push("/"));
 
@@ -77,7 +70,6 @@ export default function SeededPageShell({
       {/* [z:0–3] Background: paper, print layout, the WebGL world — seeded by this item */}
       <Background pageKind={kind} pageSlug={seedKey} />
       <Veil />
-      <PaperPicker />
 
       <main className="relative" style={{ zIndex: 20 }}>
         {/* Top bar */}

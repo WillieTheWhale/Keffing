@@ -17,11 +17,10 @@
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
-import { diveRef, scrollVelocityRef } from "@/lib/scroll";
-import { AlloyEngine, makeCamScroll, type PageLayout, type PageScene } from "./engine";
+import { scrollVelocityRef } from "@/lib/scroll";
+import { AlloyEngine, makeCamScroll, type Mask, type PageLayout, type PageScene } from "./engine";
 import { alloyBus } from "./bus";
-import { onPaper } from "./paper";
-import { PAGE_PARALLAX, pageGroups, type PageFrame, type PageKind, type SectionId } from "./pieces";
+import { PAGE_PARALLAX, type PageFrame, type PageKind, type SectionId } from "./pieces";
 import { hashSlug } from "@/lib/generative";
 import { PrintLayers, pageItems, type KeepOut, type PrintHandle, type ViewClass } from "./layout2d";
 
@@ -132,7 +131,7 @@ const Background = memo(function Background({ pageKind, pageSlug = "" }: Backgro
     // the effect, and a stray loop with no engine kept writing glFinale = false.
     let disposed = false;
     try {
-      const scene: PageScene | null = pageKind && frame ? { groups: pageGroups(pageKind, pageSeed, frame), parallax: PAGE_PARALLAX[pageKind] } : null;
+      const scene: PageScene | null = pageKind && frame ? { spec: { kind: pageKind, seed: pageSeed, frame }, parallax: PAGE_PARALLAX[pageKind] } : null;
       engine = new AlloyEngine(canvas, full ? "full" : "lite", scene);
     } catch {
       engine = null; // no WebGL: the print layer alone still composes the page
@@ -183,6 +182,9 @@ const Background = memo(function Background({ pageKind, pageSlug = "" }: Backgro
     let still = 0;
     let frameNo = 0;
     let dirty = true;
+    // reused every frame: the masks handed to the engine, the dive origin
+    const masks: Mask[] = [0, 1, 2, 3].map(() => ({ x: 0, y: 0, w: 0, h: 0, amt: 0 }));
+    const diveAt: [number, number] = [0.66, 0.31];
 
     // DPR cap 2 (lite 1.5), and a pixel budget so 4K-class windows don't
     // quadruple the fill cost: ~8 MP drawing buffer at most
@@ -225,8 +227,8 @@ const Background = memo(function Background({ pageKind, pageSlug = "" }: Backgro
       const sy = window.scrollY;
       const vh = Math.max(1, window.innerHeight);
       const s = sy / vh;
-      // the finale timeline (spring-smoothed by Dive.tsx); raw scroll if no Dive
-      const dive = reducedMotion ? 0 : alloyBus.diveLive ? alloyBus.dive : diveRef.current;
+      // the finale timeline (spring-smoothed by Dive.tsx; none without a Dive)
+      const dive = reducedMotion ? 0 : alloyBus.diveLive ? alloyBus.dive : 0;
       const time = living ? (performance.now() - t0) / 1000 : 0;
       // at rest the motion is slow drift: render every other frame (halves
       // idle GPU); the lite path always runs at half rate
@@ -237,20 +239,24 @@ const Background = memo(function Background({ pageKind, pageSlug = "" }: Backgro
       lastDive = dive;
       alloyBus.glFinale = !!engine && engine.ready && engine.skyReady && !reducedMotion;
       if (engine && !skip) {
-        const masks: { rect: DOMRect; amt: number }[] = [];
-        if (chipBox) masks.push({ rect: chipBox, amt: 0.6 });
-        if (nameBox && s < 1.2) masks.push({ rect: new DOMRect(nameBox.x, nameBox.y - sy, nameBox.width, nameBox.height), amt: 0.72 * (1 - Math.min(1, s / 0.8)) });
+        let n = 0;
+        const mask = (x: number, y: number, w: number, h: number, amt: number) => {
+          const m = masks[n++];
+          m.x = x; m.y = y; m.w = w; m.h = h; m.amt = amt;
+        };
+        if (chipBox) mask(chipBox.left, chipBox.top, chipBox.width, chipBox.height, 0.6);
+        if (nameBox && s < 1.2) mask(nameBox.x, nameBox.y - sy, nameBox.width, nameBox.height, 0.72 * (1 - Math.min(1, s / 0.8)));
         for (const hb of heads) {
-          if (masks.length >= 4) break;
+          if (n >= 4) break;
           const top = hb.y - sy;
           if (top > vh + 80 || top + hb.height < -80) continue;
-          masks.push({ rect: new DOMRect(hb.x, top, hb.width, hb.height), amt: 0.72 });
+          mask(hb.x, top, hb.width, hb.height, 0.72);
         }
-        engine.frame({ scrollVH: s, time, dive, velocity: full ? scrollVelocityRef.current : 0, masks });
+        engine.frame({ scrollVH: s, time, dive, velocity: full ? scrollVelocityRef.current : 0, masks, maskCount: n });
       }
       // also while the finale timeline is still moving after the scroll stops
       if (moving) {
-        print.current?.update(s, dive, engine ? engine.diveScreen() : [0.66, 0.31]);
+        print.current?.update(s, dive, engine ? engine.diveScreen(diveAt) : diveAt);
       }
       lastScroll = s;
       dirty = false;
@@ -283,14 +289,7 @@ const Background = memo(function Background({ pageKind, pageSlug = "" }: Backgro
     const ro = new ResizeObserver(() => onResize());
     ro.observe(document.body);
 
-    const offPaper = onPaper((hex) => {
-      engine?.setPaper(hex);
-      dirty = true;
-      kick();
-    });
-
     return () => {
-      offPaper();
       disposed = true;
       if (engine) engine.onReady = null;
       window.removeEventListener("resize", onResize);

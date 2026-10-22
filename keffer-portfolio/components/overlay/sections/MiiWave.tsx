@@ -68,8 +68,9 @@ export default function MiiWave() {
         : pose === "wave" && weights.wave > 0.55 ? 1
         : !reducedMotion && time >= nextBlink ? 2 : 0;
       if (face && faceMaterials[expression]) face.material = faceMaterials[expression];
-      host.dataset.animation = pose;
-      host.dataset.transition = motion.blending ? "blending-bones" : "playing";
+      const transition = motion.blending ? "blending-bones" : "playing";
+      if (host.dataset.animation !== pose) host.dataset.animation = pose;
+      if (host.dataset.transition !== transition) host.dataset.transition = transition;
       renderer.render(scene, camera);
     };
     const stop = () => { cancelAnimationFrame(raf); raf = 0; lastTime = 0; };

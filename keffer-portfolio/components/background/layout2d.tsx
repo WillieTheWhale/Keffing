@@ -20,7 +20,7 @@ import { AsciiField, CropMarks, Crease, RingStar, Schematic, TitleBlock } from "
 import { lyricsPool } from "@/content/lyrics";
 import { ASCII_SKY } from "./asciiSky";
 import { withBase } from "@/lib/basePath";
-import { getPaper, onPaper } from "./paper";
+import { PAPER } from "./paper";
 
 const BLUE = "#7d9fdb";
 const BLUE_2 = "#8eacdf";
@@ -363,7 +363,9 @@ function isSoft(it: Item): boolean {
   return it.node != null && typeof it.node === "object" && "type" in it.node && (it.node.type === Panel || it.node.type === Frame || it.node.type === Crease || it.node.type === CropMarks);
 }
 
-function geo(it: Item, vc: ViewClass): { x: number; y: number; w: number; h?: number } | null {
+type Geo = { x: number; y: number; w: number; h?: number };
+
+function geo(it: Item, vc: ViewClass): Geo | null {
   if (vc === "compact" && it.compactHide) return null;
   if (vc !== "narrow" || it.m === undefined) return { x: it.x, y: it.y, w: it.w, h: it.h };
   if (it.m === null) return null;
@@ -375,17 +377,29 @@ const PrintLayersImpl = forwardRef<PrintHandle, { vclass: ViewClass; items?: Ite
   const ITEMS = useMemo(() => itemsProp ?? HOME_ITEMS, []); // eslint-disable-line react-hooks/exhaustive-deps
   const under = useRef<HTMLDivElement>(null);
   const over = useRef<HTMLDivElement>(null);
-  const paperEl = useRef<HTMLDivElement>(null);
-  // the paper colour can be swapped at runtime (PaperPicker); written straight
-  // to this one element, no re-render
-  useEffect(() => onPaper((hex) => { if (paperEl.current) paperEl.current.style.background = hex; }), []);
   const els = useRef<(HTMLDivElement | null)[]>([]);
-  const state = useRef<{ home: Float64Array; homeS: Float64Array; camScroll: (s: number) => number; hidden: Uint8Array; op: Float32Array; vc: ViewClass; blocked: Uint8Array }>({
+  // each item's fade window (scroll − home, vh)
+  const wins = useMemo(() => ITEMS.map((it) => it.win ?? (it.sec === "hero" ? [-99, 0.42] : [-0.75, 0.55])), [ITEMS]);
+  const state = useRef<{
+    home: Float64Array; homeS: Float64Array; camScroll: (s: number) => number; hidden: Uint8Array; op: Float32Array; vc: ViewClass; blocked: Uint8Array;
+    /** item geometry for the current view class */
+    geo: (Geo | null)[];
+    /** last values written to the DOM (skip unchanged writes) */
+    tf: string[]; layer: [string, string, string];
+  }>({
     home: new Float64Array(ITEMS.length), homeS: new Float64Array(ITEMS.length), camScroll: (s) => s,
     hidden: new Uint8Array(ITEMS.length), op: new Float32Array(ITEMS.length).fill(-1), vc: vclass,
-    blocked: new Uint8Array(ITEMS.length),
+    blocked: new Uint8Array(ITEMS.length), geo: ITEMS.map((it) => geo(it, vclass)),
+    tf: ITEMS.map(() => ""), layer: ["", "", ""],
   });
-  useEffect(() => { state.current.vc = vclass; state.current.op.fill(-1); state.current.hidden.fill(0); }, [vclass]);
+  useEffect(() => {
+    const st = state.current;
+    st.vc = vclass;
+    st.geo = ITEMS.map((it) => geo(it, vclass));
+    st.op.fill(-1);
+    st.hidden.fill(0);
+    st.tf.fill("");
+  }, [vclass, ITEMS]);
 
   useImperativeHandle(ref, () => ({
     setLayout(layout, camScroll, keepOut = []) {
@@ -399,7 +413,7 @@ const PrintLayersImpl = forwardRef<PrintHandle, { vclass: ViewClass; items?: Ite
         // dropped for this viewport (panels and hairline frames may pass under
         // type — "clouds behind the name" — stars, blocks, hex and captions may not).
         st.blocked[i] = 0;
-        const gm = geo(it, st.vc);
+        const gm = st.geo[i];
         if (!gm || isSoft(it)) return;
         const x0 = (gm.x / 100) * vw, y0 = (gm.y / 100) * vh + st.homeS[i] * vh;
         const x1 = x0 + (gm.w / 100) * vw;
@@ -410,6 +424,7 @@ const PrintLayersImpl = forwardRef<PrintHandle, { vclass: ViewClass; items?: Ite
       });
       st.hidden.fill(0);
       st.op.fill(-1);
+      st.tf.fill("");
     },
     update(s, dive, diveAt) {
       const st = state.current;
@@ -419,12 +434,12 @@ const PrintLayersImpl = forwardRef<PrintHandle, { vclass: ViewClass; items?: Ite
         const el = els.current[i];
         if (!el) continue;
         const it = ITEMS[i];
-        const gm = geo(it, st.vc);
+        const gm = st.geo[i];
         if (!gm) continue;
         const dy = -(g - st.home[i]) * it.pf; // in vh
         const top = gm.y + dy * 100;
         const hgt = it.sq ? (gm.w * window.innerWidth) / vh : gm.h ?? 10;
-        const [w0, w1] = it.win ?? (it.sec === "hero" ? [-99, 0.42] : [-0.75, 0.55]);
+        const w0 = wins[i][0], w1 = wins[i][1];
         const rel = s - st.homeS[i];
         const vis = Math.min(sm((rel - w0) / FADE), 1 - sm((rel - w1) / FADE));
         const off = st.blocked[i] === 1 || vis <= 0.001 || top > 140 || top + hgt < -40;
@@ -433,7 +448,8 @@ const PrintLayersImpl = forwardRef<PrintHandle, { vclass: ViewClass; items?: Ite
           continue;
         }
         if (st.hidden[i] !== 2) { el.style.visibility = "visible"; st.hidden[i] = 2; }
-        el.style.transform = `translate3d(0, ${(dy * vh).toFixed(1)}px, 0)`;
+        const tf = `translate3d(0, ${(dy * vh).toFixed(1)}px, 0)`;
+        if (tf !== st.tf[i]) { el.style.transform = tf; st.tf[i] = tf; }
         const o = Math.round(vis * 100) / 100;
         if (o !== st.op[i]) { el.style.opacity = String(o); st.op[i] = o; }
       }
@@ -442,14 +458,18 @@ const PrintLayersImpl = forwardRef<PrintHandle, { vclass: ViewClass; items?: Ite
       const e = Math.pow(Math.min(1, Math.max(0, dive / 0.5)), 1.4);
       const tf = e > 0 ? `scale(${(1 + e * 1.3).toFixed(4)})` : "";
       const op = (1 - Math.min(1, Math.max(0, (dive - 0.04) / 0.24))).toFixed(3);
+      const origin = `${(diveAt[0] * 100).toFixed(1)}% ${(diveAt[1] * 100).toFixed(1)}%`;
+      const last = st.layer;
+      if (origin === last[0] && tf === last[1] && op === last[2]) return;
+      last[0] = origin; last[1] = tf; last[2] = op;
       for (const c of [under.current, over.current]) {
         if (!c) continue;
-        c.style.transformOrigin = `${(diveAt[0] * 100).toFixed(1)}% ${(diveAt[1] * 100).toFixed(1)}%`;
+        c.style.transformOrigin = origin;
         c.style.transform = tf;
         c.style.opacity = op;
       }
     },
-  }), [ITEMS]);
+  }), [ITEMS, wins]);
 
   const render = (layer: Layer) =>
     ITEMS.map((it, i) => {
@@ -482,7 +502,7 @@ const PrintLayersImpl = forwardRef<PrintHandle, { vclass: ViewClass; items?: Ite
   return (
     <>
       {/* paper ground: never moves */}
-      <div ref={paperEl} className="fixed inset-0" style={{ zIndex: 0, background: getPaper() }}>
+      <div className="fixed inset-0" style={{ zIndex: 0, background: PAPER }}>
         <div style={{ position: "absolute", inset: 0, backgroundImage: GRAIN, backgroundSize: "256px 256px", mixBlendMode: "multiply", opacity: 0.85 }} />
         <div style={{ position: "absolute", inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(20,24,40,0.018) 0 1px, transparent 1px 3px)", opacity: 0.8 }} />
       </div>

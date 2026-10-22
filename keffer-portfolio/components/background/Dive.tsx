@@ -24,11 +24,11 @@
 // Idle life once arrived: a slow sheen across the heading every few
 // seconds, a glint through the CTA, the arrow's slow bob (the sky drifts in
 // the canvas). Reduced motion: a calm crossfade with a DOM sky, everything
-// readable. Writes diveRef every frame and resets it on unmount.
+// readable. Publishes the timeline as alloyBus.dive (the canvas follows it).
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
-import { diveRef, scrollToSection } from "@/lib/scroll";
+import { scrollToSection } from "@/lib/scroll";
 import { alloyBus, BREATH, END_SKY } from "./bus";
 import css from "./Dive.module.css";
 
@@ -153,20 +153,32 @@ export default function Dive() {
       return { d, q, near };
     };
 
+    // the last value written per element and property: the timeline rewrites
+    // every component each frame, but most of them hold still
+    const written = new WeakMap<Element, Record<string, string>>();
+    const put = (el: HTMLElement | SVGElement, prop: string, v: string) => {
+      let w = written.get(el);
+      if (!w) { w = {}; written.set(el, w); }
+      if (w[prop] === v) return;
+      w[prop] = v;
+      if (prop.startsWith("--")) el.style.setProperty(prop, v);
+      else (el.style as unknown as Record<string, string>)[prop] = v;
+    };
+
     let finalApplied = false;
     const applyFinal = () => {
-      const show = (el: HTMLElement | SVGElement | null) => { if (el) { el.style.opacity = "1"; el.style.transform = ""; } };
+      const show = (el: HTMLElement | SVGElement | null) => { if (el) { put(el, "opacity", "1"); put(el, "transform", ""); } };
       eyeChars.current.forEach((el, i) => { if (el) { el.textContent = EYEBROW[i]; el.dataset.s = "1"; show(el); } });
-      if (caretRef.current) caretRef.current.style.opacity = "0";
+      if (caretRef.current) put(caretRef.current, "opacity", "0");
       letters.current.forEach(show);
-      if (sheenRef.current) sheenRef.current.style.opacity = "0";
+      if (sheenRef.current) put(sheenRef.current, "opacity", "0");
       words.current.forEach(show);
-      if (frameRef.current) { frameRef.current.style.strokeDashoffset = "0"; frameRef.current.style.opacity = "1"; }
-      if (fillRef.current) fillRef.current.style.clipPath = "inset(0 0 0 0)";
+      if (frameRef.current) { put(frameRef.current, "strokeDashoffset", "0"); put(frameRef.current, "opacity", "1"); }
+      if (fillRef.current) put(fillRef.current, "clipPath", "inset(0 0 0 0)");
       ctaChars.current.forEach(show);
-      if (offsetRef.current) { offsetRef.current.style.opacity = "0.9"; offsetRef.current.style.transform = "translate(5px, 5px)"; }
-      if (backLabelRef.current) { show(backLabelRef.current); backLabelRef.current.style.clipPath = "none"; }
-      if (backLineRef.current) backLineRef.current.style.transform = "scaleX(1)";
+      if (offsetRef.current) { put(offsetRef.current, "opacity", "0.9"); put(offsetRef.current, "transform", "translate(5px, 5px)"); }
+      if (backLabelRef.current) { show(backLabelRef.current); put(backLabelRef.current, "clipPath", "none"); }
+      if (backLineRef.current) put(backLineRef.current, "transform", "scaleX(1)");
       show(arrowRef.current);
       show(copyRef.current);
     };
@@ -178,33 +190,33 @@ export default function Dive() {
       const gl = alloyBus.glFinale && !reducedMotion;
       if (skyRef.current) {
         const sk = gl ? 0 : reducedMotion ? clamp01((t - 0.25) / 0.35) : clamp01((t - 0.35) / 0.3);
-        skyRef.current.style.opacity = sk.toFixed(3);
+        put(skyRef.current, "opacity", sk.toFixed(3));
       }
       if (breathRef.current) {
         const b = gl ? 0 : reducedMotion ? clamp01((t - 0.4) / 0.3) : clamp01((t - 0.55) / 0.25);
-        breathRef.current.style.opacity = b.toFixed(3);
+        put(breathRef.current, "opacity", b.toFixed(3));
       }
       // ── threshold
       const tq = th.x;
-      if (ruleRef.current) ruleRef.current.style.transform = `scaleX(${easeInOut(clamp01(tq / 0.6)).toFixed(4)})`;
+      if (ruleRef.current) put(ruleRef.current, "transform", `scaleX(${easeInOut(clamp01(tq / 0.6)).toFixed(4)})`);
       const nRule = ruleChars.current.length;
       const shownRule = Math.round(clamp01((tq - 0.25) / 0.6) * nRule);
-      ruleChars.current.forEach((el, i) => { if (el) el.style.opacity = i < shownRule ? "1" : "0"; });
+      ruleChars.current.forEach((el, i) => { if (el) put(el, "opacity", i < shownRule ? "1" : "0"); });
 
       if (reducedMotion) {
         // a calm crossfade: every component in its final state, faded as one
         if (!finalApplied) { applyFinal(); finalApplied = true; }
         const c = clamp01((t - 0.55) / 0.3).toFixed(3);
         if (contentRef.current) {
-          contentRef.current.style.opacity = c;
-          contentRef.current.style.pointerEvents = t > 0.6 ? "auto" : "none";
+          put(contentRef.current, "opacity", c);
+          put(contentRef.current, "pointerEvents", t > 0.6 ? "auto" : "none");
         }
         return;
       }
       const tx = textT(t);
       if (contentRef.current) {
-        contentRef.current.style.opacity = "1";
-        contentRef.current.style.pointerEvents = tx > 0.84 || forced ? "auto" : "none";
+        put(contentRef.current, "opacity", "1");
+        put(contentRef.current, "pointerEvents", tx > 0.84 || forced ? "auto" : "none");
       }
 
       // ── eyebrow: types on, a caret leading, two decoding glyphs ahead
@@ -215,20 +227,20 @@ export default function Dive() {
       eyeChars.current.forEach((el, i) => {
         if (!el) return;
         if (i < k) {
-          if (el.dataset.s !== "1") { el.textContent = EYEBROW[i]; el.style.opacity = "1"; el.dataset.s = "1"; }
+          if (el.dataset.s !== "1") { el.textContent = EYEBROW[i]; put(el, "opacity", "1"); el.dataset.s = "1"; }
         } else if (i < k + 2 && pe > 0 && pe < 1 && EYEBROW[i] !== " ") {
           el.textContent = GLYPHS[Math.floor(hash(i * 7.3 + Math.floor(time * 18)) * GLYPHS.length)];
-          el.style.opacity = i === k ? "0.55" : "0.25";
+          put(el, "opacity", i === k ? "0.55" : "0.25");
           el.dataset.s = "2";
         } else if (el.dataset.s !== "0") {
-          el.textContent = EYEBROW[i]; el.style.opacity = "0"; el.dataset.s = "0";
+          el.textContent = EYEBROW[i]; put(el, "opacity", "0"); el.dataset.s = "0";
         }
       });
       if (caretRef.current) {
         const cx = caretX[Math.min(k, caretX.length - 1)] ?? 0;
         const done = clamp01((tx - W.eyebrow[1]) / 0.03);
-        caretRef.current.style.transform = `translateX(${cx.toFixed(1)}px)`;
-        caretRef.current.style.opacity = pe > 0 ? (0.9 * (1 - done)).toFixed(3) : "0";
+        put(caretRef.current, "transform", `translateX(${cx.toFixed(1)}px)`);
+        put(caretRef.current, "opacity", pe > 0 ? (0.9 * (1 - done)).toFixed(3) : "0");
       }
 
       // ── heading: letters rise out of their reflection, staggered
@@ -245,9 +257,8 @@ export default function Dive() {
         // the letter swings up out of its reflection: it starts folded down
         // under its baseline (mirrored) and rotates upright about it
         const fold = (1 - e) * 158;
-        el.style.transform = p >= 1 ? "" : `perspective(520px) translate3d(${((1 - e) * sc.dx).toFixed(2)}px, ${((1 - e) * sc.dy).toFixed(2)}px, 0) rotate(${((1 - e) * sc.rot).toFixed(2)}deg) rotateX(${fold.toFixed(2)}deg)`;
-        el.style.opacity = (0.22 + 0.78 * clamp01(p * 1.8)).toFixed(3);
-        if (p <= 0) el.style.opacity = "0";
+        put(el, "transform", p >= 1 ? "" : `perspective(520px) translate3d(${((1 - e) * sc.dx).toFixed(2)}px, ${((1 - e) * sc.dy).toFixed(2)}px, 0) rotate(${((1 - e) * sc.rot).toFixed(2)}deg) rotateX(${fold.toFixed(2)}deg)`);
+        put(el, "opacity", p <= 0 ? "0" : (0.22 + 0.78 * clamp01(p * 1.8)).toFixed(3));
       });
       // chrome sheen: once on arrival, then a slow one every ~7 s at rest
       if (sheenRef.current) {
@@ -257,8 +268,8 @@ export default function Dive() {
           const cyc = ((time - arrivedAt) % 7.5) / 2.1; // 2.1 s sweep in a 7.5 s cycle
           if (cyc < 1) { sp = cyc; a = 0.85; } else { a = 0; }
         }
-        sheenRef.current.style.opacity = String(a);
-        if (a > 0) sheenRef.current.style.backgroundPosition = `${(115 - easeInOut(sp) * 130).toFixed(2)}% 0`;
+        put(sheenRef.current, "opacity", String(a));
+        if (a > 0) put(sheenRef.current, "backgroundPosition", `${(115 - easeInOut(sp) * 130).toFixed(2)}% 0`);
       }
 
       // ── paragraph: word by word
@@ -268,27 +279,27 @@ export default function Dive() {
         if (!el) return;
         const p = clamp01(pp * (nw + 2.5) - i);
         const e = easeOut(p);
-        el.style.opacity = e.toFixed(3);
-        el.style.transform = p >= 1 ? "" : `translateY(${((1 - e) * 10).toFixed(2)}px)`;
+        put(el, "opacity", e.toFixed(3));
+        put(el, "transform", p >= 1 ? "" : `translateY(${((1 - e) * 10).toFixed(2)}px)`);
       });
 
       // ── CTA: frame draws, fill wipes, label tracks in, offset frame settles
-      if (frameRef.current) frameRef.current.style.strokeDashoffset = (1 - easeInOut(win(tx, W.frame))).toFixed(4);
-      if (frameRef.current) frameRef.current.style.opacity = win(tx, W.frame) > 0 ? "1" : "0";
-      if (fillRef.current) fillRef.current.style.clipPath = `inset(0 ${((1 - easeInOut(win(tx, W.fill))) * 100).toFixed(2)}% 0 0)`;
+      if (frameRef.current) put(frameRef.current, "strokeDashoffset", (1 - easeInOut(win(tx, W.frame))).toFixed(4));
+      if (frameRef.current) put(frameRef.current, "opacity", win(tx, W.frame) > 0 ? "1" : "0");
+      if (fillRef.current) put(fillRef.current, "clipPath", `inset(0 ${((1 - easeInOut(win(tx, W.fill))) * 100).toFixed(2)}% 0 0)`);
       const pl = win(tx, W.label);
       const nc = ctaChars.current.length;
       ctaChars.current.forEach((el, i) => {
         if (!el) return;
         const p = clamp01(pl * (nc * 0.5 + 2) - i * 0.5);
         const e = easeOut(p);
-        el.style.opacity = e.toFixed(3);
-        el.style.transform = p >= 1 ? "" : `translateX(${((1 - e) * 10).toFixed(2)}px)`;
+        put(el, "opacity", e.toFixed(3));
+        put(el, "transform", p >= 1 ? "" : `translateX(${((1 - e) * 10).toFixed(2)}px)`);
       });
       if (offsetRef.current) {
         const p = easeOut(win(tx, W.offset));
-        offsetRef.current.style.opacity = (p * 0.9).toFixed(3);
-        offsetRef.current.style.transform = `translate(${(5 + (1 - p) * 9).toFixed(2)}px, ${(5 + (1 - p) * 9).toFixed(2)}px)`;
+        put(offsetRef.current, "opacity", (p * 0.9).toFixed(3));
+        put(offsetRef.current, "transform", `translate(${(5 + (1 - p) * 9).toFixed(2)}px, ${(5 + (1 - p) * 9).toFixed(2)}px)`);
       }
       if (glintRef.current) {
         let g = -120;
@@ -296,29 +307,29 @@ export default function Dive() {
           const cyc = ((time - arrivedAt + 3.6) % 9) / 1.4;
           if (cyc < 1) g = -120 + easeInOut(cyc) * 380;
         }
-        glintRef.current.style.setProperty("--glint", `${g.toFixed(1)}%`);
+        put(glintRef.current, "--glint", `${g.toFixed(1)}%`);
       }
 
       // ── back to the top: label slides in, underline draws, arrow lifts (then bobs)
       if (backLabelRef.current) {
         const p = easeOut(win(tx, W.back));
-        backLabelRef.current.style.opacity = p.toFixed(3);
-        backLabelRef.current.style.clipPath = `inset(0 ${((1 - p) * 100).toFixed(2)}% 0 0)`;
+        put(backLabelRef.current, "opacity", p.toFixed(3));
+        put(backLabelRef.current, "clipPath", `inset(0 ${((1 - p) * 100).toFixed(2)}% 0 0)`);
       }
-      if (backLineRef.current) backLineRef.current.style.transform = `scaleX(${easeInOut(win(tx, W.line)).toFixed(4)})`;
+      if (backLineRef.current) put(backLineRef.current, "transform", `scaleX(${easeInOut(win(tx, W.line)).toFixed(4)})`);
       if (arrowRef.current) {
         const p = win(tx, W.arrow);
         const bob = t >= 0.995 && arrivedAt >= 0 ? Math.sin((time - arrivedAt) * 2.4) * 1.6 : 0;
-        arrowRef.current.style.opacity = easeOut(p).toFixed(3);
-        arrowRef.current.style.transform = `translateY(${((1 - backOut(p, 2)) * 9 + bob).toFixed(2)}px)`;
+        put(arrowRef.current, "opacity", easeOut(p).toFixed(3));
+        put(arrowRef.current, "transform", `translateY(${((1 - backOut(p, 2)) * 9 + bob).toFixed(2)}px)`);
       }
 
       // ── ©: lands last
       if (copyRef.current) {
         const p = win(tx, W.copy);
         const e = backOut(p, 2.2);
-        copyRef.current.style.opacity = clamp01(p * 2).toFixed(3);
-        copyRef.current.style.transform = p >= 1 ? "" : `translateY(${((1 - e) * -14).toFixed(2)}px) rotate(${((1 - e) * -5).toFixed(2)}deg)`;
+        put(copyRef.current, "opacity", clamp01(p * 2).toFixed(3));
+        put(copyRef.current, "transform", p >= 1 ? "" : `translateY(${((1 - e) * -14).toFixed(2)}px) rotate(${((1 - e) * -5).toFixed(2)}deg)`);
       }
     };
 
@@ -327,7 +338,6 @@ export default function Dive() {
       const dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
       last = now;
       const g = geometry();
-      diveRef.current = reducedMotion ? 0 : g.d;
       const target = forced ? 1 : g.d;
       // far from the finale (e.g. after "back to the top") nothing should lag
       if (reducedMotion || !g.near) { tl.x = target; tl.v = 0; th.x = g.q; th.v = 0; }
@@ -352,13 +362,7 @@ export default function Dive() {
     const kick = () => {
       if (!raf) { last = performance.now(); raf = requestAnimationFrame(tick); }
     };
-    const onScroll = () => {
-      // the contract: diveRef follows the scroll every frame, even before the
-      // spring loop catches it
-      const g = geometry();
-      diveRef.current = reducedMotion ? 0 : g.d;
-      kick();
-    };
+    const onScroll = () => kick();
     const onFocus = () => { forced = true; kick(); };
     const onBlur = (e: FocusEvent) => {
       if (!section.contains(e.relatedTarget as Node | null)) { forced = false; kick(); }
@@ -373,7 +377,6 @@ export default function Dive() {
     // start from the current position without a spring run-up (reload mid-dive)
     const g0 = geometry();
     tl.x = g0.d; th.x = g0.q;
-    diveRef.current = reducedMotion ? 0 : g0.d;
     alloyBus.dive = reducedMotion ? 0 : g0.d;
     alloyBus.diveLive = true;
     render(performance.now());
@@ -386,7 +389,6 @@ export default function Dive() {
       section.removeEventListener("focusout", onBlur);
       if (raf) cancelAnimationFrame(raf);
       raf = 0;
-      diveRef.current = 0;
       alloyBus.dive = 0;
       alloyBus.diveLive = false;
     };

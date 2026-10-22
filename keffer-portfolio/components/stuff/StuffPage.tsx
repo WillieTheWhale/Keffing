@@ -28,7 +28,6 @@ export default function StuffPage({ collection }: { collection: StuffCollection 
     <SeededPageShell
       seedKey={`stuff-${collection.id}`}
       kind="catalogue"
-      densityOverride={0.2}
       breadcrumb={`My stuff / ${collection.id}`}
     >
       <article className={`px-6 md:px-12 lg:px-20 mt-14 md:mt-20 pb-28 ${collection.id === "hardware" ? "max-w-[1440px]" : collection.id === "media" ? "max-w-[1180px]" : "max-w-[1080px]"}`}>

@@ -63,6 +63,8 @@ polish round, and the orchestrator verified and finished the variant directly (n
 - `engine.ts` / `shaders.ts`: v2's chrome engine extended with a porcelain material (flat white body,
   one shade band, in-shader contours from `n·v / fwidth`), a graphite plane, a second "white room"
   env for the ice register (`env-white.jpg`), and the Dive's liquid mirror (`MIRROR_FRAG`).
+- `build.ts` / `geometry.worker.ts`: the geometry build (pieces swept into packed vertex arrays),
+  run in a Web Worker; the engine runs the same code in place if workers are unavailable.
 - `porcelain.ts`: v1's weight hierarchy in world units (heavy / medium / cable / hairline wire),
   `tube()` / `pribbon()` builders, the 3D shard nucleus (`nucleus()`, `bold` mode for clear
   silhouettes) and combed sliver sheaves.
@@ -102,3 +104,30 @@ hidden by the plunge; the nucleus reads as distinct outlined shards and black ch
   sheaf slivers and centre-stream shards) for a cleaner e02 silhouette; it is still the busiest
   spot on the page, by design.
 - Phones and tablets get the lite build with a slow rotation (no bloom).
+
+## Performance pass (2026-10-22)
+
+Goal: 60 fps on much weaker devices with no visual change at all. The pre-pass code is the local
+branch `pre-optimization`.
+
+- Removed: the retired line canvas, glitch / atmosphere / dust / fragment layers, the density
+  choreography and its smoothing loop, a 60 Hz mouse-tracking loop nothing read, per-scroll store
+  writes, old textures and an unused motion-spec page, `@react-three/*` and `raw-loader`, dead CSS.
+- The geometry build runs in a Web Worker (`build.ts`, `geometry.worker.ts`); shaders compile in
+  parallel (KHR_parallel_shader_compile). The frame loop allocates nothing; the print layer and the
+  finale skip style writes that would not change anything; the bloom pass skips graphite (it adds
+  nothing there) and draws porcelain depth-only; the Hardware canvas redraws only when something
+  it shows changed.
+- Measured (headless Chrome, CPU throttled): desktop 6× — load blocking time 1007 → 301 ms,
+  longest task 797 → 176 ms, script while scrolling 157 → 144 ms/s, style recalcs −45 %; phone
+  4× — blocking time 338 → 31 ms, script while scrolling 81 → 68 ms/s. GPU work is unchanged by
+  design (same pixels, same shaders).
+- Verified with `scripts/visual-diff` (frozen clock, same frames in both builds): bit-exact under
+  SwiftShader except where the original differs from itself run to run (the rail numerals' text
+  antialiasing, the Mii's wave timing); on the GPU and in Chrome, differences stay within the
+  GPU's own frame-to-frame jitter (≈20–50 isolated pixels in the porcelain speckle). Side-by-side
+  in Chrome: `Docs/perf-chrome-compare.png`.
+- Tried and reverted because they changed pixels: clipping the mirror pass to the sheet's bounds
+  (lost the edge-on sliver's AA band) and rewriting two shader branches (one pixel off by one on
+  the GPU).
+

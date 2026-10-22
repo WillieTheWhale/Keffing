@@ -30,7 +30,6 @@ export default function CaseStudy({ project, kind }: CaseStudyProps) {
   return (
     <SeededPageShell
       seedKey={project.id}
-      densityOverride={0.45}
       breadcrumb={`${kind === "experience" ? "Experience file" : "Project file"} / ${project.id}`}
     >
       {/* Hero band */}

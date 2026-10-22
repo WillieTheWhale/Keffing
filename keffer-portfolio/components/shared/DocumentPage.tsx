@@ -3,7 +3,6 @@
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { springs } from "@/lib/tokens";
-import PaperPicker from "@/components/background/PaperPicker";
 import { useViewport } from "@/hooks/useViewport";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { withBase } from "@/lib/basePath";
@@ -40,7 +39,6 @@ export default function DocumentPage({
     <>
       {/* [z:0–3] Background, document arrangement, seeded by the title */}
       <Background pageKind="document" pageSlug={title} />
-      <PaperPicker />
 
       {/* Content layer */}
       <main id="main-content" className="content-layer">

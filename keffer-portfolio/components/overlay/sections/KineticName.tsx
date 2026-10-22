@@ -63,16 +63,20 @@ export default function KineticName() {
     if (reducedMotion) return;
     const wrap = wrapRef.current;
     if (!wrap) return;
-    const inners = wrap.querySelectorAll<HTMLElement>("[data-shear]");
+    const inners = Array.from(wrap.querySelectorAll<HTMLElement>("[data-shear]"));
+    const vec = inners.map((el) => [parseFloat(el.dataset.sx || "0"), parseFloat(el.dataset.sy || "0"), parseFloat(el.dataset.sr || "0")]);
     let ticking = false;
+    let last = -1;
 
     const update = () => {
+      ticking = false;
       const shear = Math.min(1, Math.max(0, window.scrollY / (window.innerHeight * 0.8)));
       const eased = shear * shear;
-      inners.forEach((el) => {
-        const sx = parseFloat(el.dataset.sx || "0");
-        const sy = parseFloat(el.dataset.sy || "0");
-        const sr = parseFloat(el.dataset.sr || "0");
+      // past the hero the shear is pinned at 1: nothing to rewrite
+      if (eased === last) return;
+      last = eased;
+      inners.forEach((el, i) => {
+        const [sx, sy, sr] = vec[i];
         if (eased < 0.004) {
           el.style.transform = "";
           el.style.opacity = "1";
@@ -81,7 +85,6 @@ export default function KineticName() {
           el.style.opacity = String(Math.max(0, 1 - eased * 1.15));
         }
       });
-      ticking = false;
     };
 
     const onScroll = () => {
