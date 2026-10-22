@@ -20,6 +20,7 @@ import {
   BLUR_FRAG, CHROME_FRAG, COMPOSITE_FRAG, GRAPHITE_FRAG, GRAPHITE_VERT, MIRROR_FRAG, PORCELAIN_FRAG, QUAD_VERT, RIBBON_VERT, SHARD_VERT,
 } from "./shaders";
 import { withBase } from "@/lib/basePath";
+import { getPaper } from "./paper";
 
 export const FOV = 32;
 const VIS_H = 2 * Math.tan(((FOV / 2) * Math.PI) / 180); // visible height per unit depth
@@ -44,6 +45,13 @@ export interface FrameState {
 }
 
 export type Quality = "full" | "lite";
+
+/** Inner pages: their own groups and a plain drift instead of the home page's section curve. */
+export interface PageScene {
+  groups: GroupDef[];
+  /** Camera travel per scrolled screen (the home page moves 1:1 until Contact). */
+  parallax: number;
+}
 
 /** Camera scroll: linear, then decelerates over [h0,h1] and holds. */
 export function makeCamScroll(layout: PageLayout): (s: number) => number {
@@ -88,6 +96,8 @@ export class AlloyEngine {
   private textures: THREE.Texture[] = [];
   private layout: PageLayout | null = null;
   private camScroll: (s: number) => number = (s) => s;
+  private groupDefs: GroupDef[];
+  private page: PageScene | null;
   private w = 1;
   private h = 1;
   private dpr = 1;
@@ -109,10 +119,14 @@ export class AlloyEngine {
   private pending = 2; // env + white env
   /** The end-card sky texture is loaded (the canvas can carry the finale). */
   skyReady = false;
+  /** Set by dispose(): texture loads that land afterwards are dropped. */
+  private disposed = false;
   ready = false;
   onReady: (() => void) | null = null;
 
-  constructor(canvas: HTMLCanvasElement, quality: Quality) {
+  constructor(canvas: HTMLCanvasElement, quality: Quality, page: PageScene | null = null) {
+    this.page = page;
+    this.groupDefs = page ? page.groups : GROUPS;
     this.quality = quality;
     // ?nobloom (dev aid) compares the frame without the glow chain
     this.bloomOn = quality === "full" && !(typeof location !== "undefined" && location.search.includes("nobloom"));
@@ -126,14 +140,13 @@ export class AlloyEngine {
     this.renderer.sortObjects = true;
     this.camera = new THREE.PerspectiveCamera(FOV, 1, 0.05, 80);
 
-    const paper = new THREE.Color(0xf2f1ec).convertSRGBToLinear();
     this.shared = {
       uEnv: { value: null },
       uEnvW: { value: null },
       uEnvYaw: { value: 0 },
       uTime: { value: 0 },
-      uPaper: { value: new THREE.Vector3(paper.r, paper.g, paper.b) },
-      uPaperS: { value: new THREE.Vector3(0xf2 / 255, 0xf1 / 255, 0xec / 255) },
+      uPaper: { value: new THREE.Vector3() },
+      uPaperS: { value: new THREE.Vector3() },
       uHot: { value: 2.6 },
       uBloom: { value: 0 },
       uRipple: { value: 0.1 },
@@ -147,12 +160,14 @@ export class AlloyEngine {
       uLineW: { value: 1.38 },
       uLight: { value: new THREE.Vector3(-0.5, 0.72, 0.48).normalize() },
     };
+    this.setPaper(getPaper());
 
     if (quality === "full") setTessellation(34, 1);
     else setTessellation(20, 0.75);
 
     const loadEnv = (url: string, uniform: string) => {
       new THREE.TextureLoader().load(url, (tex) => {
+        if (this.disposed) { tex.dispose(); return; }
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.mapping = THREE.EquirectangularReflectionMapping;
         tex.wrapS = THREE.RepeatWrapping;
@@ -167,7 +182,7 @@ export class AlloyEngine {
           this.warmup();
           this.ready = true;
           this.onReady?.();
-          this.loadSky();
+          if (!this.page) this.loadSky(); // the end-card sky is a home-page finale only
         }
       });
     };
@@ -205,10 +220,20 @@ export class AlloyEngine {
     this.buildGroups();
   }
 
+  /** The paper colour the depth haze fades toward (paper.ts; "#rrggbb"). */
+  setPaper(hex: string) {
+    const n = parseInt(hex.slice(1), 16);
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    (this.shared.uPaperS.value as THREE.Vector3).set(r / 255, g / 255, b / 255);
+    const lin = new THREE.Color(n).convertSRGBToLinear();
+    (this.shared.uPaper.value as THREE.Vector3).set(lin.r, lin.g, lin.b);
+  }
+
   /** The end-card sky, loaded after first light so it never delays it. */
   private loadSky() {
     const url = `${A}end-sky${this.quality === "full" ? "" : "-1k"}.jpg`;
     new THREE.TextureLoader().load(url, (tex) => {
+      if (this.disposed) { tex.dispose(); return; }
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.minFilter = THREE.LinearMipmapLinearFilter;
       tex.magFilter = THREE.LinearFilter;
@@ -306,7 +331,7 @@ export class AlloyEngine {
       pts: [[-0.5, 0, 0], [0.5, 0, 0]], width: 1, profile: "round", kind: 0, a: 0.5, b: 0.5, segs: 18, ring: 12, sway: 0,
     });
 
-    for (const def of GROUPS) {
+    for (const def of this.groupDefs) {
       const set = def.build();
       const root = new THREE.Group();
       const core = new THREE.Group();
@@ -378,6 +403,7 @@ export class AlloyEngine {
           blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneMinusSrcAlphaFactor,
         });
         new THREE.TextureLoader().load(gr.src, (tex) => {
+          if (this.disposed) { tex.dispose(); return; }
           tex.colorSpace = THREE.NoColorSpace;
           tex.minFilter = THREE.LinearMipmapLinearFilter;
           tex.generateMipmaps = true;
@@ -423,7 +449,8 @@ export class AlloyEngine {
 
   setLayout(layout: PageLayout) {
     this.layout = layout;
-    this.camScroll = makeCamScroll(layout);
+    const k = this.page?.parallax;
+    this.camScroll = k != null ? (s) => s * k : makeCamScroll(layout);
     this.place();
   }
 
@@ -435,7 +462,7 @@ export class AlloyEngine {
       const d = g.def;
       g.home = homeScroll(this.layout, d.section, d.t);
       const anchor = narrow && d.narrow ? d.narrow.anchor : d.anchor;
-      const scale = narrow && d.narrow ? d.narrow.scale : aspect < 1.25 ? 0.82 : 1;
+      const scale = narrow && d.narrow ? d.narrow.scale : (d.scale ?? 1) * (aspect < 1.25 ? 0.82 : 1);
       const visH = VIS_H * d.depth;
       const visW = visH * aspect;
       const camY = -RATE * this.camScroll(g.home);
@@ -492,13 +519,15 @@ export class AlloyEngine {
 
   /** Mirror state for dive progress dv; returns false while it is not in play. */
   private mirror(dv: number, t: number): { on: boolean; full: boolean } {
-    if (dv < 0.14 || !this.skyReady) return { on: false, full: false };
+    if (dv < 0.08 || !this.skyReady) return { on: false, full: false };
     const u = this.mirrorMat.uniforms;
     // the sheet pivots about its long axis from edge-on to facing the camera
     const ar = new THREE.Vector3(0.36, 0.93, 0).normalize();
     const z = new THREE.Vector3(0, 0, 1);
     const side = new THREE.Vector3().crossVectors(ar, z).normalize();
-    const turn = smooth01((dv - 0.15) / 0.32);
+    // timeline (dv): swing 0.10–0.50, the eye opens 0.18–0.54, the reflection
+    // turns to sky 0.30–0.64, the sheet grows to fill the frame 0.46–0.80
+    const turn = smooth01((dv - 0.1) / 0.4);
     const phi = 1.5 * (1 - turn);
     const N = z.clone().multiplyScalar(Math.cos(phi)).addScaledVector(side, Math.sin(phi)).normalize();
     const V = new THREE.Vector3().crossVectors(N, ar).normalize();
@@ -507,14 +536,14 @@ export class AlloyEngine {
     u.uMV.value.copy(V);
     u.uMN.value.copy(N);
     u.uMSize.value.set(0.5, 0.5);
-    u.uWidth.value = 0.3 + 0.34 * smooth01((dv - 0.17) / 0.33);
+    u.uWidth.value = 0.3 + 0.34 * smooth01((dv - 0.18) / 0.36);
     u.uBow.value = 0.14;
-    u.uGrow.value = 1 + 9 * Math.pow(smooth01((dv - 0.4) / 0.3), 2.2);
-    u.uRippleAmp.value = 0.05 * (1 - smooth01((dv - 0.48) / 0.3)) + 0.0026;
-    u.uCurv.value = 0.26 * (1 - smooth01((dv - 0.45) / 0.3));
-    u.uMirror.value = smooth01((dv - 0.2) / 0.32);
-    u.uBreath.value = BREATH * smooth01((dv - 0.55) / 0.25);
-    const full = dv > 0.74;
+    u.uGrow.value = 1 + 9 * Math.pow(smooth01((dv - 0.46) / 0.34), 2.2);
+    u.uRippleAmp.value = 0.05 * (1 - smooth01((dv - 0.52) / 0.3)) + 0.0026;
+    u.uCurv.value = 0.26 * (1 - smooth01((dv - 0.5) / 0.3));
+    u.uMirror.value = smooth01((dv - 0.3) / 0.34);
+    u.uBreath.value = BREATH * smooth01((dv - 0.66) / 0.22);
+    const full = dv > 0.84;
     u.uFull.value = full ? 1 : 0;
     u.uDrift.value.set(Math.sin(t * 0.021) * 0.006, Math.sin(t * 0.017 + 1.0) * 0.004);
     return { on: true, full };
@@ -552,19 +581,19 @@ export class AlloyEngine {
     sh.uEnvYaw.value = 0.18 + t * 0.011 + g * 0.045;
 
     // camera: travel + a small push into the hero mass + the dive
-    const push = -0.9 * smooth01(s / 1.1);
+    const push = this.page ? 0 : -0.9 * smooth01(s / 1.1);
     const base = new THREE.Vector3(0, -RATE * g, push);
     const dv = st.dive;
     if (dv > 0) {
       // 1) fly to the contact mass, looking up into it and rolling
-      const e1 = Math.pow(smooth01(dv / 0.42), 1.25);
+      const e1 = Math.pow(smooth01(dv / 0.5), 1.25);
       const tgt1 = this.diveTarget.clone().add(new THREE.Vector3(0.15, 0.1, 1.6));
       base.lerp(tgt1, e1);
       // 2) settle square-on in front of the mirror, rolling level again
-      const e2 = smooth01((dv - 0.3) / 0.42);
+      const e2 = smooth01((dv - 0.32) / 0.46);
       const tgt2 = this.mirrorCentre().add(new THREE.Vector3(0, 0, 0.55));
       base.lerp(tgt2, e2);
-      const lift = Math.sin(Math.min(1, dv / 0.42) * Math.PI) * 0.12 * (1 - e2);
+      const lift = Math.sin(Math.min(1, dv / 0.5) * Math.PI) * 0.12 * (1 - e2);
       this.camera.rotation.set(lift, 0, e1 * 0.2 * (1 - e2));
     } else {
       this.camera.rotation.set(0, 0, 0);
@@ -582,8 +611,9 @@ export class AlloyEngine {
       const [w0, w1] = d.window;
       let p = Math.min(smooth01((relS - w0) / 0.4), 1 - smooth01((relS - w1) / 0.45));
       if (d.id === "contact" && dv > 0) p = 1;
-      // the world falls away behind the mirror once it has filled the frame
-      if (dv > 0.5) p *= 1 - smooth01((dv - 0.52) / 0.18);
+      // in the Dive every other piece fades out while the mirror is still a
+      // sliver (0.04–0.28), so the camera flies through the mirror alone
+      if (dv > 0) p *= 1 - smooth01((dv - 0.04) / 0.24);
       if (mir.full) p = 0;
       gr.presence = p;
       gr.root.visible = p > 0.002;
@@ -627,10 +657,7 @@ export class AlloyEngine {
       pass(this.rtD, this.rtC, 3.5, 0);
       pass(this.rtC, this.rtD, 0, 3.5);
       // 3) main
-      r.setRenderTarget(null);
-      r.setClearColor(0x000000, 0);
-      r.clear();
-      r.render(this.scene, this.camera);
+      this.drawMain(mir.on, true);
       // 4) composite glow
       this.quad.material = this.compMat;
       this.compMat.uniforms.uA.value = this.rtB.texture;
@@ -639,12 +666,19 @@ export class AlloyEngine {
       r.render(this.quadScene, this.quadCam);
       r.autoClear = true;
     } else {
-      r.setRenderTarget(null);
-      r.setClearColor(0x000000, 0);
-      r.clear();
-      if (any) r.render(this.scene, this.camera);
+      this.drawMain(mir.on, any);
     }
-    if (mir.on) {
+    return any || mir.on;
+  }
+
+  /** Clear, then the mirror (it writes depth), then the scene over it. */
+  private drawMain(mirror: boolean, scene: boolean) {
+    const r = this.renderer;
+    r.setRenderTarget(null);
+    r.setClearColor(0x000000, 0);
+    r.clear();
+    r.autoClear = false;
+    if (mirror) {
       const u = this.mirrorMat.uniforms;
       u.uRes.value.set(this.w * this.dpr, this.h * this.dpr);
       u.uInvProj.value.copy(this.camera.projectionMatrixInverse);
@@ -652,12 +686,10 @@ export class AlloyEngine {
       u.uView.value.copy(this.camera.matrixWorldInverse);
       u.uViewProj.value.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
       u.uCamPos.value.copy(this.camera.position);
-      r.autoClear = false;
       r.render(this.mirrorScene, this.camera);
-      r.autoClear = true;
-      any = true;
     }
-    return any;
+    if (scene) r.render(this.scene, this.camera);
+    r.autoClear = true;
   }
 
   /** Screen position (0..1) of the dive target — for the DOM layer's dolly origin. */
@@ -667,6 +699,8 @@ export class AlloyEngine {
   }
 
   dispose() {
+    this.disposed = true;
+    this.onReady = null;
     this.scene.traverse((o) => {
       const m = o as THREE.Mesh;
       if (m.geometry) m.geometry.dispose();

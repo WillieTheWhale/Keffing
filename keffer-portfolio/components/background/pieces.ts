@@ -69,6 +69,8 @@ export interface GroupDef {
   depth: number;
   /** Portrait / narrow override for the anchor and a scale factor. */
   narrow?: { anchor: [number, number]; scale: number };
+  /** Scale on landscape viewports (default 1; inner pages size to their free space). */
+  scale?: number;
   /** Vortex axis for the core spin, rad/s. */
   axis?: V3;
   spin?: number;
@@ -747,3 +749,164 @@ export const GROUPS: GroupDef[] = [
     axis: CONTACT_AXIS, spin: 0.022, breathe: 0.05, window: [-0.8, 9], build: contactSet,
   },
 ];
+
+// ─── Inner pages (project, catalogue, document) ─────────────
+//
+// The same materials in a quieter, page-shaped arrangement: one mass anchored
+// in a free top corner beside the page title, its long ribbon falling down
+// the free margin, and a small knot that sits near the bottom of the page
+// (anchored to the page's end, so it arrives as the content runs out). The
+// slug seeds the vortex, so no two pages have the same mass.
+
+export type PageKind = "case" | "catalogue" | "document";
+
+/** Gentle camera drift per scrolled screen on each page kind (the home page uses its section curve). */
+export const PAGE_PARALLAX: Record<PageKind, number> = { case: 0.35, catalogue: 0.5, document: 0.4 };
+
+function pageMassSet(seed: number, axis: V3): PieceSet {
+  const core = vortex({
+    axis, sheets: 4, blades: 12, slivers: 10, wires: 2, rMax: 0.8,
+    white: 0.1, glass: 0.1, clearCore: 0.45, hollow: 0.3, seed: 7000 + (seed % 997),
+  });
+  const nuc = nucleus({ axis, center: [0.04, 0.08, 0.18], r: 0.5, flat: 0.3, shards: 22, chips: 8, splinters: 18, frags: 0, seed: 8000 + (seed % 991), scale: 0.85, comb: 0.5, bold: true });
+  const arms: RibbonSpec[] = [
+    // 0 — the page's main gesture: out of the mass and down the free margin, off the bottom
+    {
+      pts: [[0.1, -0.2, 0.2], [0.55, -1.1, 0.45], [0.35, -2.3, 0.55], [0.75, -3.6, 0.35], [0.45, -5.0, 0.05], [0.8, -6.6, -0.3]],
+      width: 0.36, profile: "sheet", kind: 0, bow: 0.9, curl: 0.4, wave: 0.5, thick: 0.07, twist: Math.PI * 2.2, roll: 0.4,
+      a: 0.55, b: 0.85, tear: 0.12, serrate: 0.3, teeth: 6, seed: 0.211, sway: 0.5, up: [0, 1, 0.3],
+    },
+    // 1 — up and out of the top edge
+    {
+      pts: [[0.2, 0.3, 0.0], [0.5, 0.9, 0.2], [0.9, 1.6, 0.1], [1.3, 2.4, -0.2]],
+      width: 0.16, profile: "lens", kind: 0, thick: 0.11, twist: Math.PI * 1.8, roll: 0.6,
+      a: 0.5, b: 1.3, tear: 0.2, seed: 0.293, sway: 0.7,
+    },
+    // 2 — a needle to the right edge
+    {
+      pts: [[0.3, 0.0, 0.1], [1.1, -0.2, 0.2], [2.0, -0.1, -0.1], [2.9, 0.2, -0.4]],
+      width: 0.08, profile: "plano", kind: 0, thick: 0.14, twist: Math.PI * 1.3, a: 0.5, b: 1.6, seed: 0.347, sway: 0.9,
+    },
+    // 3 — a glass petal reaching toward the page, not into it
+    {
+      pts: [[-0.3, 0.15, 0.2], [-0.8, 0.4, 0.45], [-1.25, 0.3, 0.5], [-1.5, -0.05, 0.35]],
+      width: 0.45, profile: "crescent", kind: 2, bow: 1.3, curl: 1.2, thick: 0.05, twist: Math.PI * 0.5, roll: 0.8,
+      a: 0.9, b: 1.1, tear: 0.1, serrate: 0.2, seed: 0.419, sway: 0.5,
+    },
+    // 4 — the porcelain tube: from the top edge through the vortex, down the
+    //     ribbon's inside and an eccentric loop low in the margin, ending torn
+    tube({
+      pts: [[0.6, 1.6, -0.3], [0.4, 0.8, -0.05], [0.15, 0.1, 0.06], [0.35, -0.8, 0.25], [0.7, -1.9, 0.35], [0.55, -3.0, 0.25],
+        [0.95, -3.6, 0.1], [1.3, -3.1, 0.0], [1.05, -2.7, -0.1], [0.75, -3.1, 0.0], [0.9, -4.2, 0.05]],
+      w: 0.14, seed: 0.523, sway: 0.4, start: "cut", end: "torn", taper: [0, 0],
+      wmul: [[0, 1], [0.55, 1], [0.75, 0.66], [1, 0.8]],
+    }),
+    // 5 — a cable out of the mass, up and off the top
+    tube({
+      pts: [[-0.25, 0.4, 0.3], [-0.8, 1.0, 0.4], [-1.3, 1.6, 0.3], [-1.6, 2.4, 0.1]],
+      w: W_CABLE, seed: 0.613, sway: 0.8, taper: [0.05, 0.2], start: "cut", end: "point",
+    }),
+  ];
+  const shards = [
+    ...stream({ from: [0.3, -0.2, 0.2], path: [[0.8, -0.9, 0.4], [1.1, -1.8, 0.3], [1.4, -2.8, 0.0]], count: 46, size: [0.03, 0.22], spread: 0.22, white: 0.2, glass: 0.15, seed: 61 + (seed % 89), pills: 0.06 }),
+    ...stream({ from: [-0.2, 0.3, 0.1], path: [[-0.6, 0.8, 0.3], [-0.9, 1.4, 0.2]], count: 22, size: [0.02, 0.16], spread: 0.18, white: 0.3, glass: 0.2, seed: 67 + (seed % 83) }),
+  ];
+  return {
+    core, arms, shards, splits: [{ arm: 0, from: 0.7, count: 2, spread: 0.22, width: 0.12, extend: 0.4 }],
+    plates: nuc.plates, coreP: nuc.blades,
+    comps: [
+      { arm: 4, u0: 0.12, u1: 0.62, angle: 0.4, gap: 0.12, peel: [0.05, 0.2], width: W_WIRE, kind: 4, spin: 1.4, tube: { taper: [0.05, 0.1], start: "cut", end: "point" } },
+      { arm: 0, u0: 0.3, u1: 0.78, angle: Math.PI * 0.5, gap: 0.2, peel: [0.15, 0.05], width: W_CABLE, kind: 3, tube: { taper: [0, 0.2], start: "cut", end: "point" } },
+    ],
+    graphite: { src: withBase("/assets/background/graphite-contact.png"), pos: [0.7, -0.25, -0.12], size: [0.9, 0.85], alpha: 0.85 },
+  };
+}
+
+const knotAxis = (seed: number): V3 => [0.3 - (seed % 7) * 0.08, 0.7, 0.65];
+
+function pageKnotSet(seed: number): PieceSet {
+  const ax = knotAxis(seed);
+  const core = vortex({
+    axis: ax, sheets: 1, blades: 5, slivers: 8, wires: 1, rMax: 0.45,
+    white: 0.35, glass: 0.25, clearCore: 0.4, seed: 5600 + (seed % 409),
+  });
+  const nuc = nucleus({ axis: ax, center: [0, 0, 0], r: 0.13, shards: 14, chips: 5, splinters: 10, frags: 6, seed: 5700 + (seed % 401), scale: 0.7 });
+  return {
+    core,
+    arms: [
+      // a short porcelain loop around the knot, thinning on its far side
+      tube({
+        pts: [[-0.9, 0.5, -0.1], [-0.35, 0.2, 0.1], [0.25, -0.15, 0.2], [0.6, 0.25, 0.1], [0.3, 0.6, -0.05], [-0.1, 0.25, 0.05], [0.15, -0.55, 0.1], [0.4, -1.4, 0.0]],
+        w: W_MED, seed: 0.733, sway: 0.5, start: "cut", end: "point", taper: [0, 0.2],
+        wmul: [[0, 1], [0.4, 1], [0.6, 0.7], [1, 0.9]],
+      }),
+    ],
+    shards: stream({ from: [0, 0, 0], path: [[-0.5, -0.3, 0.2], [-1.1, -0.5, 0.1]], count: 14, size: [0.02, 0.1], spread: 0.15, white: 0.3, glass: 0.3, seed: 97 + (seed % 71) }),
+    plates: nuc.plates, coreP: nuc.blades,
+  };
+}
+
+/**
+ * Where an inner page's content leaves room, measured from the rendered page
+ * (Background.tsx), in viewport fractions. The page compositions lay
+ * themselves into it rather than assuming one layout.
+ */
+export interface PageFrame {
+  /** Left edge of the free column on the right (where the content ends). */
+  colX: number;
+  /** Right edge of the free margin on the left (document pages; 0 otherwise). */
+  leftX: number;
+  /** Right edge of the page title's text. */
+  titleX: number;
+  /** Top of a wide media band under the title (project pages), at scroll 0; 1 if none. */
+  bandY: number;
+}
+
+/** Where the mass and the knot go for a page kind, given its frame. */
+export function pagePlacement(kind: PageKind, f: PageFrame) {
+  const cw = Math.max(0, 1 - f.colX - 0.01);
+  if (kind === "document") {
+    const rw = cw, lw = Math.max(0, f.leftX - 0.01);
+    return {
+      mass: { anchor: [f.colX + Math.max(rw, 0.12) * 0.55, 0.15] as [number, number], scale: Math.min(1, Math.max(0.5, rw / 0.3)) * 0.78 },
+      knot: [Math.max(0.05, lw * 0.45), 0.72] as [number, number],
+      knotScale: Math.min(1, Math.max(0.55, lw / 0.25)),
+    };
+  }
+  if (kind === "case") {
+    // above the full-width hero band, right of the title; it falls behind the band
+    const room = Math.max(0.12, f.bandY);
+    return {
+      mass: { anchor: [Math.min(0.88, Math.max(0.8, f.titleX + 0.3)), Math.max(0.1, room * 0.48)] as [number, number], scale: Math.min(1, Math.max(0.5, room / 0.32)) * 0.8 },
+      knot: [f.colX + cw * 0.55, 0.74] as [number, number],
+      knotScale: Math.min(1, Math.max(0.55, cw / 0.25)),
+    };
+  }
+  // catalogue: the free column beside the grid; a narrow column tucks the mass against the edge
+  const tight = cw < 0.16;
+  return {
+    mass: { anchor: [tight ? 0.965 : f.colX + cw * 0.55, 0.16] as [number, number], scale: tight ? 0.6 : Math.min(1, Math.max(0.6, cw / 0.3)) * 0.85 },
+    knot: [tight ? 0.97 : f.colX + cw * 0.5, 0.62] as [number, number],
+    knotScale: tight ? 0.55 : Math.min(1, Math.max(0.6, cw / 0.25)),
+  };
+}
+
+/** The 3D groups for an inner page. `seed` comes from the page's slug. */
+export function pageGroups(kind: PageKind, seed: number, frame: PageFrame): GroupDef[] {
+  const axis: V3 = norm([-0.42 + ((seed % 11) - 5) * 0.03, 0.62, 0.66]);
+  const at = pagePlacement(kind, frame);
+  const forever: [number, number] = [-99, 99];
+  return [
+    {
+      id: "pageMass", section: "hero", t: 0, anchor: at.mass.anchor, depth: 10, scale: at.mass.scale,
+      narrow: { anchor: [0.95, 0.05], scale: 0.42 },
+      axis, spin: 0.018, breathe: 0.045, window: forever, build: () => pageMassSet(seed, axis),
+    },
+    {
+      // "contact" here is the page's last screen (see Background's page layout)
+      id: "pageKnot", section: "contact", t: 0.5, anchor: at.knot, depth: 11, scale: at.knotScale * 0.9,
+      narrow: { anchor: [0.96, 0.86], scale: 0.4 },
+      axis: knotAxis(seed), spin: 0.03, breathe: 0.04, window: forever, haze: 0.04, build: () => pageKnotSet(seed),
+    },
+  ];
+}

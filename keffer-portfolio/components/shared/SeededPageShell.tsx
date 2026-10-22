@@ -4,30 +4,31 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { pinLayers } from "@/lib/tuning";
-import GlitchLayer from "@/components/overlay/glitch/GlitchLayer";
-import FilmGrain from "@/components/overlay/glitch/FilmGrain";
-import FragmentsLayer from "@/components/canvas/FragmentsLayer";
+import { useViewport } from "@/hooks/useViewport";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 import Veil, { openVeil } from "@/components/shared/Veil";
+import PaperPicker from "@/components/background/PaperPicker";
+import type { PageKind } from "@/components/background/pieces";
 
-const LineCanvas = dynamic(() => import("@/components/canvas/LineCanvas"), {
+// The home page's ALLOY background, in its page arrangement (pieces.ts
+// pageGroups, layout2d pageItems): a mass by the title in the free top
+// corner, its ribbon down the free margin, seeded by the page's slug.
+const Background = dynamic(() => import("@/components/background/Background"), {
   ssr: false,
   loading: () => null,
 });
 
 /**
- * Shared shell for any full-page detail view whose background should be
- * re-seeded per item (case studies, articles, …) — the full generative
- * background carries over but gets its OWN line composition, pinned to a
- * quiet fixed density since the content is the signal on these pages.
- * Extracted from the original CaseStudy template (roadmap W8-9) once the
- * Writing section needed the identical pattern for article pages, rather
- * than re-copy the background-layer + re-seed + reveal-wipe plumbing.
+ * Shared shell for the inner pages (project and experience files, the My
+ * stuff catalogues): the ALLOY background in a page-shaped arrangement seeded
+ * by the item, the arrival wipe, and the top bar.
  */
 
 interface SeededPageShellProps {
   /** Stable id (project slug, post slug, …) — the background's seed. */
   seedKey: string;
+  /** Which page arrangement of the background: project files or catalogues. */
+  kind?: Extract<PageKind, "case" | "catalogue">;
   /** Pinned line-canvas density while on this page. */
   densityOverride?: number;
   /** Mono breadcrumb in the top bar, e.g. "Project file / blockd". */
@@ -37,22 +38,22 @@ interface SeededPageShellProps {
 
 export default function SeededPageShell({
   seedKey,
+  kind = "case",
   densityOverride = 0.45,
   breadcrumb,
   children,
 }: SeededPageShellProps) {
   const router = useRouter();
   const [revealed, setRevealed] = useState(false);
+  // the background picks its quality from the device tier and motion setting
+  useViewport();
+  useReducedMotion();
 
-  // Same composition as the home page, held at a quiet fixed density with the
-  // ambient layers pinned; restored on leave.
   useEffect(() => {
     useStore.setState({ densityOverride, entryDone: true });
-    pinLayers({ fragments: 0.55, glitch: 0.3, dust: 0.3, rects: 0.45, atmosphere: 0.3, beat: 0 });
     const t = setTimeout(() => setRevealed(true), 60);
     return () => {
       clearTimeout(t);
-      pinLayers(null);
       useStore.setState({ densityOverride: null });
     };
   }, [seedKey, densityOverride]);
@@ -73,15 +74,10 @@ export default function SeededPageShell({
         aria-hidden="true"
       />
 
-      {/* Generative background, re-seeded for this item */}
-      <LineCanvas />
-      <FragmentsLayer />
-      <GlitchLayer />
-      <FilmGrain />
+      {/* [z:0–3] Background: paper, print layout, the WebGL world — seeded by this item */}
+      <Background pageKind={kind} pageSlug={seedKey} />
       <Veil />
-
-      {/* Same composition, lifted toward white — the detail pages read quieter */}
-      <div className="page-wash" aria-hidden="true" />
+      <PaperPicker />
 
       <main className="relative" style={{ zIndex: 20 }}>
         {/* Top bar */}

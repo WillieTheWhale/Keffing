@@ -27,6 +27,7 @@ export default function StuffPage({ collection }: { collection: StuffCollection 
   return (
     <SeededPageShell
       seedKey={`stuff-${collection.id}`}
+      kind="catalogue"
       densityOverride={0.2}
       breadcrumb={`My stuff / ${collection.id}`}
     >

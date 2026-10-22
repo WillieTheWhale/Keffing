@@ -132,14 +132,6 @@ const projectCatalog = [
     github: "https://github.com/WillieTheWhale/LLM_Image_Prompt_Injection",
   },
   {
-    id: "bragg-peak",
-    title: "Bragg Peak",
-    description:
-      "Research software for simulating proton Bragg-peak dose behavior, combining first-principles physics, Monte Carlo transport, OpenGATE/Geant4 reference modeling, and a learned transformer-style transport model.",
-    tags: ["Python", "PyTorch", "Monte Carlo", "OpenGATE", "Geant4"],
-    github: "https://github.com/WillieTheWhale/Bragg-Peak",
-  },
-  {
     id: "kuramoto-neural",
     title: "Kuramoto Neural",
     description:

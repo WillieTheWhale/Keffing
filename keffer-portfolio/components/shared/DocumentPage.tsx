@@ -3,18 +3,15 @@
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { springs } from "@/lib/tokens";
-import GlitchLayer from "@/components/overlay/glitch/GlitchLayer";
-import BlackRectangles from "@/components/overlay/glitch/BlackRectangles";
-import SkyFragmentsCSS from "@/components/overlay/glitch/SkyFragmentsCSS";
-import ParticleDust from "@/components/overlay/glitch/ParticleDust";
-import FilmGrain from "@/components/overlay/glitch/FilmGrain";
-import AtmosphereLayer from "@/components/overlay/atmosphere/AtmosphereLayer";
+import PaperPicker from "@/components/background/PaperPicker";
 import { useViewport } from "@/hooks/useViewport";
 import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { withBase } from "@/lib/basePath";
 
-const LineCanvas = dynamic(
-  () => import("@/components/canvas/LineCanvas"),
+// The ALLOY background in its document arrangement: the document is centred,
+// so the chrome and print sit in both margins (pieces.ts, layout2d.tsx).
+const Background = dynamic(
+  () => import("@/components/background/Background"),
   { ssr: false, loading: () => null }
 );
 
@@ -41,14 +38,9 @@ export default function DocumentPage({
 
   return (
     <>
-      {/* Background layer stack -- identical to main site */}
-      <LineCanvas />
-      <SkyFragmentsCSS />
-      <BlackRectangles />
-      <ParticleDust />
-      <GlitchLayer />
-      <FilmGrain />
-      <AtmosphereLayer />
+      {/* [z:0–3] Background, document arrangement, seeded by the title */}
+      <Background pageKind="document" pageSlug={title} />
+      <PaperPicker />
 
       {/* Content layer */}
       <main id="main-content" className="content-layer">

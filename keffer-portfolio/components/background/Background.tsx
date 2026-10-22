@@ -15,18 +15,26 @@
 // lite path (lower tessellation, no bloom) with a slow living rotation at
 // ~30 fps; reduced motion renders a still, on demand only.
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { diveRef, scrollVelocityRef } from "@/lib/scroll";
-import { AlloyEngine, makeCamScroll, type PageLayout } from "./engine";
+import { AlloyEngine, makeCamScroll, type PageLayout, type PageScene } from "./engine";
 import { alloyBus } from "./bus";
-import type { SectionId } from "./pieces";
-import { PrintLayers, type KeepOut, type PrintHandle, type ViewClass } from "./layout2d";
+import { onPaper } from "./paper";
+import { PAGE_PARALLAX, pageGroups, type PageFrame, type PageKind, type SectionId } from "./pieces";
+import { hashSlug } from "@/lib/generative";
+import { PrintLayers, pageItems, type KeepOut, type PrintHandle, type ViewClass } from "./layout2d";
 
 const SECTION_IDS: SectionId[] = ["hero", "about", "work", "stuff", "experience", "contact", "dive"];
 
-function measure(): PageLayout {
+function measure(page: boolean): PageLayout {
   const vh = Math.max(1, window.innerHeight);
+  if (page) {
+    // inner pages: "hero" is the top of the page, "contact" its last screen
+    // (page groups and print items anchor to one or the other)
+    const docVH = document.documentElement.scrollHeight / vh;
+    return { sections: { hero: [0, docVH], contact: [Math.max(0, docVH - 1), 1] }, maxScrollVH: Math.max(0, docVH - 1) };
+  }
   const sections: PageLayout["sections"] = {};
   for (const id of SECTION_IDS) {
     const el = document.getElementById(id);
@@ -35,7 +43,64 @@ function measure(): PageLayout {
   return { sections, maxScrollVH: (document.documentElement.scrollHeight - vh) / vh };
 }
 
-const Background = memo(function Background() {
+// Inner pages: where the content leaves room (see PageFrame), from the rendered
+// page at scroll 0. Rounded to 2 % so tiny reflows don't rebuild the scene.
+function measureFrame(): PageFrame {
+  const vw = Math.max(1, window.innerWidth), vh = Math.max(1, window.innerHeight), sy = window.scrollY;
+  const q = (x: number) => Math.round(x * 50) / 50;
+  const textRect = (el: Element) => { const r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect(); };
+  let L = vw, R = 0, titleX = 0, bandY = 1;
+  for (const el of document.querySelectorAll<HTMLElement>("main h1, main h2, main p, main img, main canvas, main .content-panel, main li, main table")) {
+    const cs = getComputedStyle(el);
+    if (cs.position === "fixed" || cs.visibility === "hidden") continue;
+    const box = el.getBoundingClientRect();
+    if (box.width < 2 || box.height < 2 || box.top + sy < 70) continue; // the top bar (index link, breadcrumb)
+    // headings and paragraphs: their text, not their (often full-width) block
+    const r = el.tagName === "H1" || el.tagName === "H2" || el.tagName === "P" ? textRect(el) : box;
+    if (el.tagName === "IMG" && box.width > vw * 0.5) {
+      // a wide media band (project pages): its frame, not the scaled image
+      const band = el.parentElement?.getBoundingClientRect() ?? box;
+      bandY = Math.min(bandY, (band.top + sy) / vh);
+      continue;
+    }
+    if (el.tagName === "H1") titleX = Math.max(titleX, r.right / vw);
+    L = Math.min(L, r.left);
+    R = Math.max(R, r.right);
+  }
+  return { colX: q(Math.min(0.97, R / vw + 0.01)), leftX: q(Math.max(0, L / vw - 0.01)), titleX: q(titleX), bandY: q(bandY) };
+}
+
+interface BackgroundProps {
+  /** Inner pages: the page's kind and slug (its seed). Omitted on the home page. */
+  pageKind?: PageKind;
+  pageSlug?: string;
+}
+
+const Background = memo(function Background({ pageKind, pageSlug = "" }: BackgroundProps) {
+  const pageSeed = useMemo(() => (pageKind ? hashSlug(`${pageKind}/${pageSlug}`) : 0), [pageKind, pageSlug]);
+  // inner pages wait for their frame: the scene is laid into the measured free space
+  const [frame, setFrame] = useState<PageFrame | null>(null);
+  const frameKey = frame ? `${frame.colX}/${frame.leftX}/${frame.titleX}/${frame.bandY}` : "";
+  useEffect(() => {
+    if (!pageKind) return;
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const take = () => {
+      const f = measureFrame();
+      setFrame((old) => (old && old.colX === f.colX && old.leftX === f.leftX && old.titleX === f.titleX && old.bandY === f.bandY ? old : f));
+    };
+    const later = () => { if (t) clearTimeout(t); t = setTimeout(take, 250); };
+    take();
+    // fonts and images settle the layout after mount
+    const settle = [300, 1200].map((ms) => setTimeout(take, ms));
+    document.fonts?.ready.then(take);
+    window.addEventListener("resize", later);
+    return () => {
+      settle.forEach(clearTimeout);
+      if (t) clearTimeout(t);
+      window.removeEventListener("resize", later);
+    };
+  }, [pageKind]);
+  const pagePrint = useMemo(() => (pageKind && frame ? pageItems(pageKind, pageSeed, frame) : undefined), [pageKind, pageSeed, frame]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -57,19 +122,25 @@ const Background = memo(function Background() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || (pageKind && !frame)) return;
     const full = (deviceTier === "desktop" || deviceTier === "wide") && !reducedMotion;
     // phones / tablets: the lite build, but alive — a slow rotation at ~30 fps
     const living = !reducedMotion;
     let engine: AlloyEngine | null = null;
+    // set in cleanup: a disposed engine's late texture callback (onReady) must
+    // not restart this effect's loop. StrictMode and device-tier changes re-run
+    // the effect, and a stray loop with no engine kept writing glFinale = false.
+    let disposed = false;
     try {
-      engine = new AlloyEngine(canvas, full ? "full" : "lite");
+      const scene: PageScene | null = pageKind && frame ? { groups: pageGroups(pageKind, pageSeed, frame), parallax: PAGE_PARALLAX[pageKind] } : null;
+      engine = new AlloyEngine(canvas, full ? "full" : "lite", scene);
     } catch {
       engine = null; // no WebGL: the print layer alone still composes the page
     }
     canvas.style.display = engine ? "block" : "none";
 
-    let layout = measure();
+    const camFor = (l: PageLayout) => (pageKind ? (s: number) => s * PAGE_PARALLAX[pageKind] : makeCamScroll(l));
+    let layout = measure(!!pageKind);
     // tight union of the name's letters, in document coordinates
     let nameBox: DOMRect | null = null;
     const measureName = () => {
@@ -92,7 +163,8 @@ const Background = memo(function Background() {
       chipBox = chip ? chip.getBoundingClientRect() : null;
       const sy = window.scrollY;
       heads = [];
-      document.querySelectorAll<HTMLElement>("main h2").forEach((h) => {
+      // inner pages: their titles are h1s, and the top bar's breadcrumb sits over the top-right corner
+      document.querySelectorAll<HTMLElement>(pageKind ? "main h1, main h2, main .mark-caption" : "main h2").forEach((h) => {
         if (h.closest("#dive")) return;
         const wrap = h.parentElement ?? h;
         const pr = wrap.getBoundingClientRect();
@@ -103,7 +175,7 @@ const Background = memo(function Background() {
         heads.push(new DOMRect(rr.left, pr.top + sy, rr.width, pr.height));
       });
     };
-    let camScroll = makeCamScroll(layout);
+    let camScroll = camFor(layout);
     const t0 = performance.now();
     let raf = 0;
     let lastScroll = -1;
@@ -131,13 +203,15 @@ const Background = memo(function Background() {
         push(range.getBoundingClientRect());
       });
       for (const h of heads) out.push({ x: h.x, y: h.y, w: h.width, h: h.height });
+      // inner pages: text panels and cards (print graphics stay out from under them)
+      if (pageKind) document.querySelectorAll<HTMLElement>("main .content-panel, main article, main img").forEach((el) => push(el.getBoundingClientRect()));
       return out;
     };
     const doResize = () => {
-      layout = measure();
+      layout = measure(!!pageKind);
       measureName();
       measureHeads();
-      camScroll = makeCamScroll(layout);
+      camScroll = camFor(layout);
       engine?.resize(window.innerWidth, window.innerHeight, dpr());
       engine?.setLayout(layout);
       print.current?.setLayout(layout, camScroll, measureKeepOut());
@@ -147,10 +221,12 @@ const Background = memo(function Background() {
 
     const tick = () => {
       raf = 0;
+      if (disposed) return;
       const sy = window.scrollY;
       const vh = Math.max(1, window.innerHeight);
       const s = sy / vh;
-      const dive = reducedMotion ? 0 : diveRef.current;
+      // the finale timeline (spring-smoothed by Dive.tsx); raw scroll if no Dive
+      const dive = reducedMotion ? 0 : alloyBus.diveLive ? alloyBus.dive : diveRef.current;
       const time = living ? (performance.now() - t0) / 1000 : 0;
       // at rest the motion is slow drift: render every other frame (halves
       // idle GPU); the lite path always runs at half rate
@@ -172,7 +248,8 @@ const Background = memo(function Background() {
         }
         engine.frame({ scrollVH: s, time, dive, velocity: full ? scrollVelocityRef.current : 0, masks });
       }
-      if (s !== lastScroll || dirty) {
+      // also while the finale timeline is still moving after the scroll stops
+      if (moving) {
         print.current?.update(s, dive, engine ? engine.diveScreen() : [0.66, 0.31]);
       }
       lastScroll = s;
@@ -180,7 +257,7 @@ const Background = memo(function Background() {
       if (living && !document.hidden) raf = requestAnimationFrame(tick);
     };
     const kick = () => {
-      if (!raf) raf = requestAnimationFrame(tick);
+      if (!raf && !disposed) raf = requestAnimationFrame(tick);
     };
 
     if (engine) engine.onReady = () => {
@@ -206,7 +283,16 @@ const Background = memo(function Background() {
     const ro = new ResizeObserver(() => onResize());
     ro.observe(document.body);
 
+    const offPaper = onPaper((hex) => {
+      engine?.setPaper(hex);
+      dirty = true;
+      kick();
+    });
+
     return () => {
+      offPaper();
+      disposed = true;
+      if (engine) engine.onReady = null;
       window.removeEventListener("resize", onResize);
       window.removeEventListener("scroll", onScroll);
       document.removeEventListener("visibilitychange", onVis);
@@ -219,11 +305,11 @@ const Background = memo(function Background() {
       engine?.dispose();
       engine = null;
     };
-  }, [deviceTier, reducedMotion, print, vclass]);
+  }, [deviceTier, reducedMotion, print, vclass, pageKind, pageSeed, frame]);
 
   return (
     <div ref={rootRef} aria-hidden="true" className="pointer-events-none">
-      <PrintLayers ref={print} vclass={vclass} />
+      {(!pageKind || pagePrint) && <PrintLayers key={frameKey} ref={print} vclass={vclass} items={pagePrint} />}
       <div ref={wrapRef} className="fixed inset-0" style={{ zIndex: 2, opacity: 0, transition: "opacity 1400ms cubic-bezier(0.16, 1, 0.3, 1)" }}>
         <canvas ref={canvasRef} style={{ width: "100vw", height: "100vh", display: "block" }} />
       </div>

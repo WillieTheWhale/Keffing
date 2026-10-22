@@ -15,22 +15,22 @@
 
 import { forwardRef, memo, useEffect, useImperativeHandle, useMemo, useRef, type CSSProperties, type ReactNode } from "react";
 import { homeScroll, type PageLayout } from "./engine";
-import type { SectionId } from "./pieces";
+import type { PageFrame, PageKind, SectionId } from "./pieces";
 import { AsciiField, CropMarks, Crease, RingStar, Schematic, TitleBlock } from "./print";
 import { lyricsPool } from "@/content/lyrics";
 import { ASCII_SKY } from "./asciiSky";
 import { withBase } from "@/lib/basePath";
+import { getPaper, onPaper } from "./paper";
 
 const BLUE = "#7d9fdb";
 const BLUE_2 = "#8eacdf";
-const PAPER = "#f2f1ec";
 const INK = "#1b1d22";
 const P = withBase("/assets/background/panels/");
 const GRAIN = `url(${withBase("/assets/background/paper-grain.png")})`;
 
 type Layer = "under" | "over";
 
-interface Item {
+export interface Item {
   layer: Layer;
   sec: SectionId;
   t: number;
@@ -155,7 +155,7 @@ function Caption({ lines, size = 9 }: { lines: string[]; size?: number }) {
 
 const HEX_A = "0x0f38722", HEX_B = "0xff37390", HEX_C = "0x3d63b8f";
 
-const ITEMS: Item[] = [
+const HOME_ITEMS: Item[] = [
   // ══ HERO ══════════════════════════════════════════════════
   // right: the big mounted cobalt sky the mass sits on (e02 in a frame)
   { layer: "under", sec: "hero", t: 0, x: 55.5, y: 5, w: 36, h: 46, pf: 0.5, m: { x: 40, y: 4, w: 56, h: 24 }, node: <Panel src="hero-cobalt.webp" /> },
@@ -241,6 +241,107 @@ const ITEMS: Item[] = [
   { layer: "over", sec: "contact", t: 0.5, x: 32.6, y: 59.8, w: 5.4, sq: true, pf: 0.55, win: [-0.75, 99], m: null, node: <RingStar /> },
 ];
 
+// ─── Inner pages ────────────────────────────────────────────
+//
+// Laid out in the page's free column (project and catalogue pages keep their
+// content in the left two-thirds; documents are centred), anchored to the top
+// ("hero") or to the page's last screen ("contact": see Background's page
+// layout). Always present; they drift with the page's gentle parallax.
+
+const PAGE_PANELS = ["hero-cobalt.webp", "work-navy.webp", "contact-cumulus.webp", "stuff-mono.webp", "exp-contrail.webp"];
+// wide, short crops above a project page's hero band: skies with texture all over
+const CASE_PANELS = ["work-navy.webp", "contact-cumulus.webp", "stuff-mono.webp"];
+// below the top bar's breadcrumb
+const TOP_Y = 8;
+const ALWAYS: [number, number] = [-99, 99];
+const clamp = (x: number, a: number, b: number) => Math.min(b, Math.max(a, x));
+
+/** Print items for an inner page, laid into the free space its frame measured. */
+export function pageItems(kind: PageKind, seed: number, f: PageFrame): Item[] {
+  const panel = PAGE_PANELS[seed % PAGE_PANELS.length];
+  const hex = `0x${(seed & 0xffffff).toString(16).padStart(6, "0")}`;
+  const sheet = `SHEET ${1 + (seed % 7)} / 7`;
+  const dwg = `DWG  WK-${String(2600 + (seed % 97)).padStart(4, "0")}`;
+  const top = (it: Omit<Item, "sec" | "t" | "win">): Item => ({ sec: "hero", t: 0, win: ALWAYS, ...it });
+  const end = (it: Omit<Item, "sec" | "t" | "win">): Item => ({ sec: "contact", t: 0.5, win: ALWAYS, ...it });
+  const titleBlock = (x: number, w: number) =>
+    end({ layer: "over", x, y: 84, w, h: 10, pf: 0.6, m: null, node: <TitleBlock rows={[dwg, "SCALE  1 : 1", sheet, "REV  C", "DRN  W.K.  10/26"]} seed={seed % 9} /> });
+  // a mounted panel with its offset hairline frame and crop marks (behind the mass)
+  const mounted = (x: number, y: number, w: number, h: number, src: string, pf = 0.5, m?: Item["m"]): Item[] => [
+    top({ layer: "under", x, y, w, h, pf, m, node: <Panel src={src} /> }),
+    top({ layer: "over", x: x - 0.8, y: y + 1.2, w, h, pf, m: m && { ...m, x: (m.x ?? x) - 1.5, y: (m.y ?? y) + 1 }, node: <Frame color="rgba(27,29,34,0.4)" /> }),
+    top({ layer: "over", x, y, w, h, pf, m: null, node: <CropMarks off={8} len={12} /> }),
+  ];
+  // phones: one small panel just under the top bar's breadcrumb row
+  const phonePanel = { x: 54, y: 6.5, w: 42, h: 8 };
+  const items: Item[] = [];
+
+  if (kind === "document") {
+    const lw = f.leftX * 100 - 5, rx = f.colX * 100 + 2, rw = 100 - f.colX * 100 - 4;
+    if (lw >= 6) {
+      const sw = Math.min(7, lw * 0.5);
+      items.push(
+        top({ layer: "under", x: 2.5, y: 8, w: sw, h: 36, pf: 0.55, m: null, node: <Panel src="navy-chip.webp" /> }),
+        top({ layer: "over", x: 3.2, y: 9.3, w: sw, h: 36, pf: 0.55, m: null, node: <Frame color="rgba(27,29,34,0.4)" /> }),
+        top({ layer: "over", x: 2.5, y: 45.4, w: lw, pf: 0.55, m: null, node: <Caption lines={["ALT 3400 M", hex]} size={7.5} /> }),
+        top({ layer: "under", x: 2.5, y: 52, w: lw * 0.8, h: 4.5, pf: 0.55, m: null, node: <Block color={BLUE} /> }),
+        top({ layer: "under", x: 2.7, y: 60, w: lw, h: 14, pf: 0.55, m: null, node: <HexDump rows={6} seed={seed % 13} /> }),
+      );
+    }
+    if (rw >= 6) {
+      items.push(...mounted(rx, TOP_Y, rw, 22, panel, 0.5, phonePanel));
+      items.push(end({ layer: "under", x: rx, y: 40, w: rw, h: 22, pf: 0.55, m: null, node: <div style={{ position: "absolute", inset: 0, opacity: 0.4 }}><Schematic seed={seed % 29} w={230} h={220} noTitle /></div> }));
+      items.push(end({ layer: "under", x: 100 - 7, y: 66, w: 4.5, h: 14, pf: 0.55, m: null, node: <Block color={BLUE} to={BLUE_2} /> }));
+      if (rw >= 12) items.push(titleBlock(100 - 2 - Math.min(14, rw), Math.min(14, rw)));
+    }
+    return items;
+  }
+
+  const cx = f.colX * 100 + 1.5, cw = 100 - f.colX * 100 - 3;
+
+  if (kind === "case") {
+    // above the hero band, between the title and the right edge, behind the mass
+    const px = clamp(f.titleX * 100 + 10, 66, 78), ph = f.bandY * 100 - TOP_Y - 3;
+    if (ph >= 8) items.push(...mounted(px, TOP_Y, Math.min(20, 96 - px), ph, CASE_PANELS[seed % CASE_PANELS.length], 0.5, phonePanel));
+    // the column beside the text card, under the band
+    if (cw >= 10) {
+      const y0 = clamp(f.bandY * 100 + 52, 60, 90);
+      items.push(
+        top({ layer: "under", x: cx, y: y0, w: Math.min(cw, 22), h: 18, pf: 0.58, m: null, node: <div style={{ position: "absolute", inset: 0, opacity: 0.38 }}><Schematic seed={seed % 31} w={320} h={200} noTitle /></div> }),
+        top({ layer: "over", x: cx, y: y0 + 19.5, w: Math.min(cw, 18), pf: 0.58, m: null, node: <Caption lines={[`FIG. ${String(1 + (seed % 9)).padStart(2, "0")} — ${hex}`, "SPECULAR · ENV 2048"]} size={8} /> }),
+        top({ layer: "under", x: 100 - 6, y: y0 - 6, w: 4, h: 22, pf: 0.58, m: null, node: <Block color={BLUE} to={BLUE_2} /> }),
+        top({ layer: "over", x: 100 - 8.4, y: y0 - 8.4, w: 3.4, sq: true, pf: 0.58, m: null, node: <RingStar /> }),
+        end({ layer: "under", x: cx, y: 44, w: Math.min(cw, 16), h: 13, pf: 0.6, m: null, node: <AsciiField lines={seed % 2 ? ASCII_SKY.eddies : ASCII_SKY.cumulus} opacity={0.36} /> }),
+      );
+      if (cw >= 15) items.push(titleBlock(100 - 16, 14));
+    }
+    return items;
+  }
+
+  // catalogue: the free column beside the grid
+  if (cw < 13) {
+    // a narrow column: one tall strip and a blue band, nothing with text in it
+    items.push(...mounted(cx, TOP_Y, Math.max(4, cw), 30, panel, 0.5, phonePanel));
+    items.push(top({ layer: "under", x: cx, y: 42, w: Math.max(2, Math.min(4, cw)), h: 26, pf: 0.55, m: null, node: <Block color={BLUE} to={BLUE_2} /> }));
+    items.push(end({ layer: "under", x: cx, y: 10, w: Math.max(4, cw), h: 30, pf: 0.58, m: null, node: <Panel src="exp-contrail.webp" /> }));
+    return items;
+  }
+  const pw = Math.min(cw, 26);
+  items.push(...mounted(cx, TOP_Y, pw, 26, panel, 0.5, phonePanel));
+  items.push(
+    top({ layer: "over", x: cx, y: 34, w: Math.min(cw, 18), pf: 0.5, m: null, node: <Caption lines={[`FIG. ${String(1 + (seed % 9)).padStart(2, "0")} — ${hex}`, "SPECULAR · ENV 2048"]} size={8} /> }),
+    top({ layer: "under", x: 100 - 6, y: 40, w: 4, h: 26, pf: 0.55, m: null, node: <Block color={BLUE} to={BLUE_2} /> }),
+    top({ layer: "over", x: 100 - 8.4, y: 37.6, w: 3.4, sq: true, pf: 0.55, m: null, node: <RingStar /> }),
+    top({ layer: "under", x: cx, y: 48, w: Math.min(cw - 7, 22), h: 18, pf: 0.58, m: null, node: <div style={{ position: "absolute", inset: 0, opacity: 0.38 }}><Schematic seed={seed % 31} w={320} h={200} noTitle /></div> }),
+    top({ layer: "under", x: cx, y: 70, w: Math.min(cw, 12), h: 12, pf: 0.6, m: null, node: <Hex items={[[0, HEX_A, 11], [8, hex, 11], [16, HEX_C, 11]]} /> }),
+    end({ layer: "under", x: cx + 2, y: 8, w: 8, h: 30, pf: 0.58, m: null, node: <Panel src="exp-contrail.webp" /> }),
+    end({ layer: "over", x: cx + 2.8, y: 9.2, w: 8, h: 30, pf: 0.58, m: null, node: <Frame color="rgba(27,29,34,0.36)" /> }),
+    end({ layer: "under", x: cx, y: 46, w: Math.min(cw, 16), h: 13, pf: 0.6, m: null, node: <AsciiField lines={seed % 2 ? ASCII_SKY.eddies : ASCII_SKY.cumulus} opacity={0.36} /> }),
+  );
+  if (cw >= 15) items.push(titleBlock(100 - 16, 14));
+  return items;
+}
+
 // ─── Component ──────────────────────────────────────────────
 
 const FADE = 0.35;
@@ -269,9 +370,15 @@ function geo(it: Item, vc: ViewClass): { x: number; y: number; w: number; h?: nu
   return { x: it.m.x ?? it.x, y: it.m.y ?? it.y, w: it.m.w ?? it.w, h: it.m.h ?? it.h };
 }
 
-const PrintLayersImpl = forwardRef<PrintHandle, { vclass: ViewClass }>(function PrintLayers({ vclass }, ref) {
+const PrintLayersImpl = forwardRef<PrintHandle, { vclass: ViewClass; items?: Item[] }>(function PrintLayers({ vclass, items: itemsProp }, ref) {
+  // fixed for the life of the component (a page passes its own list once)
+  const ITEMS = useMemo(() => itemsProp ?? HOME_ITEMS, []); // eslint-disable-line react-hooks/exhaustive-deps
   const under = useRef<HTMLDivElement>(null);
   const over = useRef<HTMLDivElement>(null);
+  const paperEl = useRef<HTMLDivElement>(null);
+  // the paper colour can be swapped at runtime (PaperPicker); written straight
+  // to this one element, no re-render
+  useEffect(() => onPaper((hex) => { if (paperEl.current) paperEl.current.style.background = hex; }), []);
   const els = useRef<(HTMLDivElement | null)[]>([]);
   const state = useRef<{ home: Float64Array; homeS: Float64Array; camScroll: (s: number) => number; hidden: Uint8Array; op: Float32Array; vc: ViewClass; blocked: Uint8Array }>({
     home: new Float64Array(ITEMS.length), homeS: new Float64Array(ITEMS.length), camScroll: (s) => s,
@@ -331,9 +438,10 @@ const PrintLayersImpl = forwardRef<PrintHandle, { vclass: ViewClass }>(function 
         if (o !== st.op[i]) { el.style.opacity = String(o); st.op[i] = o; }
       }
       // the Dive: the print layer is carried past the camera, then burns off
-      const e = Math.pow(Math.min(1, Math.max(0, dive / 0.42)), 1.4);
+      // (same pacing as the 3D pieces, which fade over 0.04–0.28: engine.ts)
+      const e = Math.pow(Math.min(1, Math.max(0, dive / 0.5)), 1.4);
       const tf = e > 0 ? `scale(${(1 + e * 1.3).toFixed(4)})` : "";
-      const op = (1 - Math.min(1, Math.max(0, (dive - 0.06) / 0.26))).toFixed(3);
+      const op = (1 - Math.min(1, Math.max(0, (dive - 0.04) / 0.24))).toFixed(3);
       for (const c of [under.current, over.current]) {
         if (!c) continue;
         c.style.transformOrigin = `${(diveAt[0] * 100).toFixed(1)}% ${(diveAt[1] * 100).toFixed(1)}%`;
@@ -341,7 +449,7 @@ const PrintLayersImpl = forwardRef<PrintHandle, { vclass: ViewClass }>(function 
         c.style.opacity = op;
       }
     },
-  }), []);
+  }), [ITEMS]);
 
   const render = (layer: Layer) =>
     ITEMS.map((it, i) => {
@@ -374,7 +482,7 @@ const PrintLayersImpl = forwardRef<PrintHandle, { vclass: ViewClass }>(function 
   return (
     <>
       {/* paper ground: never moves */}
-      <div className="fixed inset-0" style={{ zIndex: 0, background: PAPER }}>
+      <div ref={paperEl} className="fixed inset-0" style={{ zIndex: 0, background: getPaper() }}>
         <div style={{ position: "absolute", inset: 0, backgroundImage: GRAIN, backgroundSize: "256px 256px", mixBlendMode: "multiply", opacity: 0.85 }} />
         <div style={{ position: "absolute", inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(20,24,40,0.018) 0 1px, transparent 1px 3px)", opacity: 0.8 }} />
       </div>

@@ -8,6 +8,12 @@ export const alloyBus = {
    *  so it carries the finale itself ("through the mirror"); otherwise the
    *  Dive shows its own DOM sky (reduced motion, no WebGL, still loading). */
   glFinale: false,
+  /** The finale timeline: dive progress smoothed by Dive.tsx's spring (0..1).
+   *  The canvas follows this, not the raw scroll, so the mirror's swing plays
+   *  out at its own pace however fast the page is scrolled. */
+  dive: 0,
+  /** True while a Dive is mounted and writing `dive`. */
+  diveLive: false,
 };
 
 export const END_SKY = withBase("/assets/background/end-sky.jpg");

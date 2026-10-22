@@ -57,6 +57,21 @@ const W = {
 } as const;
 
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
+// The background's swing-and-open takes up the first part of the timeline;
+// the end card's type (the windows in W) starts once the mirror has turned
+// to sky.
+const TEXT_FROM = 0.3;
+const textT = (t: number) => clamp01((t - TEXT_FROM) / (1 - TEXT_FROM));
+// Spring rates (rad/s) for the finale timeline: slow going in, so the
+// mirror's swing always plays out over ~2 s however hard the flick; quicker
+// on the way back out.
+const W_IN = 2.4;
+const W_OUT = 5.5;
+// Speed limit (timeline units / s) going in: a glide through the mirror's
+// swing and opening (~0.1–0.6) so even a hard flick plays it over ~1.5 s,
+// freer before and after. Normal scrolling stays under it.
+const rateIn = (x: number) => 0.9 - 0.58 * smooth01((x - 0.04) / 0.1) * (1 - smooth01((x - 0.56) / 0.1));
+function smooth01(x: number) { const t = x < 0 ? 0 : x > 1 ? 1 : x; return t * t * (3 - 2 * t); }
 const win = (t: number, w: readonly [number, number]) => clamp01((t - w[0]) / (w[1] - w[0]));
 const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
 const easeInOut = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
@@ -186,14 +201,15 @@ export default function Dive() {
         }
         return;
       }
+      const tx = textT(t);
       if (contentRef.current) {
         contentRef.current.style.opacity = "1";
-        contentRef.current.style.pointerEvents = t > 0.84 || forced ? "auto" : "none";
+        contentRef.current.style.pointerEvents = tx > 0.84 || forced ? "auto" : "none";
       }
 
       // ── eyebrow: types on, a caret leading, two decoding glyphs ahead
       const ne = eyeChars.current.length;
-      const pe = win(t, W.eyebrow);
+      const pe = win(tx, W.eyebrow);
       const typed = pe * ne;
       const k = Math.floor(typed);
       eyeChars.current.forEach((el, i) => {
@@ -210,7 +226,7 @@ export default function Dive() {
       });
       if (caretRef.current) {
         const cx = caretX[Math.min(k, caretX.length - 1)] ?? 0;
-        const done = clamp01((t - W.eyebrow[1]) / 0.03);
+        const done = clamp01((tx - W.eyebrow[1]) / 0.03);
         caretRef.current.style.transform = `translateX(${cx.toFixed(1)}px)`;
         caretRef.current.style.opacity = pe > 0 ? (0.9 * (1 - done)).toFixed(3) : "0";
       }
@@ -223,7 +239,7 @@ export default function Dive() {
       letters.current.forEach((el, i) => {
         if (!el) return;
         const s0 = h0 + (span - dur) * (i / Math.max(1, nl - 1));
-        const p = clamp01((t - s0) / dur);
+        const p = clamp01((tx - s0) / dur);
         const e = backOut(p, 1.2);
         const sc = scatter[i];
         // the letter swings up out of its reflection: it starts folded down
@@ -235,7 +251,7 @@ export default function Dive() {
       });
       // chrome sheen: once on arrival, then a slow one every ~7 s at rest
       if (sheenRef.current) {
-        let sp = win(t, W.sheen);
+        let sp = win(tx, W.sheen);
         let a = sp > 0 && sp < 1 ? 1 : 0;
         if (t >= 0.995 && arrivedAt >= 0) {
           const cyc = ((time - arrivedAt) % 7.5) / 2.1; // 2.1 s sweep in a 7.5 s cycle
@@ -247,7 +263,7 @@ export default function Dive() {
 
       // ── paragraph: word by word
       const nw = words.current.length;
-      const pp = win(t, W.para);
+      const pp = win(tx, W.para);
       words.current.forEach((el, i) => {
         if (!el) return;
         const p = clamp01(pp * (nw + 2.5) - i);
@@ -257,10 +273,10 @@ export default function Dive() {
       });
 
       // ── CTA: frame draws, fill wipes, label tracks in, offset frame settles
-      if (frameRef.current) frameRef.current.style.strokeDashoffset = (1 - easeInOut(win(t, W.frame))).toFixed(4);
-      if (frameRef.current) frameRef.current.style.opacity = win(t, W.frame) > 0 ? "1" : "0";
-      if (fillRef.current) fillRef.current.style.clipPath = `inset(0 ${((1 - easeInOut(win(t, W.fill))) * 100).toFixed(2)}% 0 0)`;
-      const pl = win(t, W.label);
+      if (frameRef.current) frameRef.current.style.strokeDashoffset = (1 - easeInOut(win(tx, W.frame))).toFixed(4);
+      if (frameRef.current) frameRef.current.style.opacity = win(tx, W.frame) > 0 ? "1" : "0";
+      if (fillRef.current) fillRef.current.style.clipPath = `inset(0 ${((1 - easeInOut(win(tx, W.fill))) * 100).toFixed(2)}% 0 0)`;
+      const pl = win(tx, W.label);
       const nc = ctaChars.current.length;
       ctaChars.current.forEach((el, i) => {
         if (!el) return;
@@ -270,7 +286,7 @@ export default function Dive() {
         el.style.transform = p >= 1 ? "" : `translateX(${((1 - e) * 10).toFixed(2)}px)`;
       });
       if (offsetRef.current) {
-        const p = easeOut(win(t, W.offset));
+        const p = easeOut(win(tx, W.offset));
         offsetRef.current.style.opacity = (p * 0.9).toFixed(3);
         offsetRef.current.style.transform = `translate(${(5 + (1 - p) * 9).toFixed(2)}px, ${(5 + (1 - p) * 9).toFixed(2)}px)`;
       }
@@ -285,13 +301,13 @@ export default function Dive() {
 
       // ── back to the top: label slides in, underline draws, arrow lifts (then bobs)
       if (backLabelRef.current) {
-        const p = easeOut(win(t, W.back));
+        const p = easeOut(win(tx, W.back));
         backLabelRef.current.style.opacity = p.toFixed(3);
         backLabelRef.current.style.clipPath = `inset(0 ${((1 - p) * 100).toFixed(2)}% 0 0)`;
       }
-      if (backLineRef.current) backLineRef.current.style.transform = `scaleX(${easeInOut(win(t, W.line)).toFixed(4)})`;
+      if (backLineRef.current) backLineRef.current.style.transform = `scaleX(${easeInOut(win(tx, W.line)).toFixed(4)})`;
       if (arrowRef.current) {
-        const p = win(t, W.arrow);
+        const p = win(tx, W.arrow);
         const bob = t >= 0.995 && arrivedAt >= 0 ? Math.sin((time - arrivedAt) * 2.4) * 1.6 : 0;
         arrowRef.current.style.opacity = easeOut(p).toFixed(3);
         arrowRef.current.style.transform = `translateY(${((1 - backOut(p, 2)) * 9 + bob).toFixed(2)}px)`;
@@ -299,7 +315,7 @@ export default function Dive() {
 
       // ── ©: lands last
       if (copyRef.current) {
-        const p = win(t, W.copy);
+        const p = win(tx, W.copy);
         const e = backOut(p, 2.2);
         copyRef.current.style.opacity = clamp01(p * 2).toFixed(3);
         copyRef.current.style.transform = p >= 1 ? "" : `translateY(${((1 - e) * -14).toFixed(2)}px) rotate(${((1 - e) * -5).toFixed(2)}deg)`;
@@ -313,11 +329,18 @@ export default function Dive() {
       const g = geometry();
       diveRef.current = reducedMotion ? 0 : g.d;
       const target = forced ? 1 : g.d;
-      if (reducedMotion) { tl.x = target; tl.v = 0; th.x = g.q; th.v = 0; }
+      // far from the finale (e.g. after "back to the top") nothing should lag
+      if (reducedMotion || !g.near) { tl.x = target; tl.v = 0; th.x = g.q; th.v = 0; }
       else {
-        springStep(tl, target, dt, 7.5);
+        const prevX = tl.x;
+        springStep(tl, target, dt, target >= tl.x ? W_IN : W_OUT);
+        if (tl.x > prevX) {
+          const cap = rateIn(prevX);
+          if (tl.x - prevX > cap * dt) { tl.x = prevX + cap * dt; tl.v = Math.min(tl.v, cap); }
+        }
         springStep(th, g.q, dt, 6);
       }
+      alloyBus.dive = reducedMotion ? 0 : tl.x;
       if (tl.x >= 0.995 && Math.abs(tl.v) < 0.01) { if (arrivedAt < 0) arrivedAt = now / 1000; }
       else arrivedAt = -1;
       render(now);
@@ -351,6 +374,8 @@ export default function Dive() {
     const g0 = geometry();
     tl.x = g0.d; th.x = g0.q;
     diveRef.current = reducedMotion ? 0 : g0.d;
+    alloyBus.dive = reducedMotion ? 0 : g0.d;
+    alloyBus.diveLive = true;
     render(performance.now());
     kick();
     return () => {
@@ -362,11 +387,13 @@ export default function Dive() {
       if (raf) cancelAnimationFrame(raf);
       raf = 0;
       diveRef.current = 0;
+      alloyBus.dive = 0;
+      alloyBus.diveLive = false;
     };
   }, [reducedMotion, scatter]);
 
   return (
-    <section id="dive" ref={sectionRef} className="relative" style={{ height: "300vh" }} aria-label="Finale">
+    <section id="dive" ref={sectionRef} className="relative" style={{ height: "480vh" }} aria-label="Finale">
       {/* The one red element on the site: the threshold */}
       <div className={css.threshold}>
         <div ref={ruleRef} className={css.rule} />
