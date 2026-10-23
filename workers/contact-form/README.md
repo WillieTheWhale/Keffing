@@ -7,9 +7,10 @@ message to the address in `wrangler.toml` through Cloudflare Email Routing.
 Needs, in the Cloudflare account that owns keffer.cafe:
 - Email Routing enabled on keffer.cafe, with williamkeffer2005@gmail.com added
   and verified as a destination address;
-- this Worker deployed. Pushes to main that touch this folder deploy it
-  through GitHub Actions (.github/workflows/deploy-worker.yml, which needs the
-  CLOUDFLARE_API_TOKEN repository secret); by hand: `npx wrangler deploy` from
+- this Worker deployed. Cloudflare Workers Builds is connected to the repo
+  (keffer-contact > Settings > Builds: branch main, root directory
+  workers/contact-form, watch path workers/contact-form/*), so a push to main
+  that touches this folder redeploys it; by hand: `npx wrangler deploy` from
   this folder after `npx wrangler login`.
 
 The site's endpoint is `CONTACT_ENDPOINT` in keffer-portfolio/lib/contact.ts.

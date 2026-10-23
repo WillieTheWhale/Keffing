@@ -144,5 +144,7 @@ The form posts to the `keffer-contact` Cloudflare Worker (`workers/contact-form`
 keffer-contact.williamkeffer2005.workers.dev), which emails each message from signal@keffer.cafe to
 williamkeffer2005@gmail.com through Cloudflare Email Routing. keffer.cafe's DNS moved from Namecheap
 BasicDNS to Cloudflare for it (same website records, DNS only); a catch-all forwards any other
-@keffer.cafe mail to the same Gmail.
+@keffer.cafe mail to the same Gmail. Deploys: GitHub Pages rebuilds the site on every push to
+main (`.github/workflows/deploy.yml`); Cloudflare Workers Builds redeploys the Worker on pushes to
+main that touch `workers/contact-form/`.
 
