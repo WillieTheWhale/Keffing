@@ -10,14 +10,15 @@
 // smoothed by a critically damped spring, so a fast flick never pops:
 //
 //   threshold   the red rule draws out from the centre, its label types on
-//   eyebrow     types on character by character, a block caret leading it
-//               and two decoding glyphs running ahead of it
 //   heading     letters rise out of their reflection (mirrored → upright)
 //               from scattered positions, staggered, then a chrome sheen
 //               sweeps across them
-//   paragraph   word by word
+//   contact     the address types on character by character, a block caret
+//               leading it and two decoding glyphs running ahead of it
 //   CTA         the frame draws, the fill wipes, the label tracks in, then
-//               a hairline offset frame settles behind it
+//               a hairline offset frame settles behind it; it unfolds the
+//               "Leave a message" sheet in place of the buttons
+//               (LeaveMessage.tsx)
 //   back to top the label slides in, its underline draws, the arrow lifts
 //   ©           lands last, with a small settle
 //
@@ -26,26 +27,27 @@
 // the canvas). Reduced motion: a calm crossfade with a DOM sky, everything
 // readable. Publishes the timeline as alloyBus.dive (the canvas follows it).
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { scrollToSection } from "@/lib/scroll";
+import { CONTACT_EMAIL } from "@/lib/contact";
 import { alloyBus, BREATH, END_SKY } from "./bus";
+import LeaveMessage from "./LeaveMessage";
 import css from "./Dive.module.css";
 
 const LABEL = "Threshold — diving to pure signal";
-const EYEBROW = "Signal acquired — end of transmission";
 const HEAD = "Pure signal";
-const PARA = "The noise resolves. If something here resonated, open a channel.";
-const CTA = "Open channel";
+const MAIL = CONTACT_EMAIL;
+const CTA = "Send me a message";
 const BACK = "back to the top";
 const GLYPHS = "01░▒/\\|—·:+×#";
 
 // timeline windows, in dive progress (0..1)
 const W = {
-  eyebrow: [0.6, 0.71],
   head: [0.62, 0.8],
   sheen: [0.79, 0.9],
-  para: [0.71, 0.85],
+  mail: [0.7, 0.81],
+  mailCopy: [0.8, 0.86],
   frame: [0.78, 0.845],
   fill: [0.835, 0.885],
   label: [0.865, 0.91],
@@ -99,12 +101,12 @@ export default function Dive() {
   const contentRef = useRef<HTMLDivElement>(null);
   const ruleRef = useRef<HTMLDivElement>(null);
   const ruleChars = useRef<(HTMLSpanElement | null)[]>([]);
-  const eyeChars = useRef<(HTMLSpanElement | null)[]>([]);
+  const mailChars = useRef<(HTMLSpanElement | null)[]>([]);
   const caretRef = useRef<HTMLSpanElement>(null);
+  const mailCopyRef = useRef<HTMLButtonElement>(null);
   const letters = useRef<(HTMLSpanElement | null)[]>([]);
   const sheenRef = useRef<HTMLSpanElement>(null);
-  const words = useRef<(HTMLSpanElement | null)[]>([]);
-  const ctaRef = useRef<HTMLAnchorElement>(null);
+  const ctaRef = useRef<HTMLButtonElement>(null);
   const frameRef = useRef<SVGRectElement>(null);
   const fillRef = useRef<HTMLSpanElement>(null);
   const offsetRef = useRef<HTMLSpanElement>(null);
@@ -116,8 +118,31 @@ export default function Dive() {
   const arrowRef = useRef<HTMLSpanElement>(null);
   const copyRef = useRef<HTMLSpanElement>(null);
 
+  // the message sheet: open, it holds the card fully on screen (like focus does)
+  const [open, setOpen] = useState(false);
+  const openRef = useRef(false);
+  const kickRef = useRef<() => void>(() => {});
+  const openSheet = () => { openRef.current = true; setOpen(true); kickRef.current(); };
+  const closeSheet = useCallback(() => {
+    openRef.current = false;
+    setOpen(false);
+    kickRef.current();
+  }, []);
+  // closed again: focus goes back to the button it came from (once it is no longer inert)
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (wasOpen.current && !open) ctaRef.current?.focus({ preventScroll: true });
+    wasOpen.current = open;
+  }, [open]);
+  const [copied, setCopied] = useState(false);
+  const copyMail = () => {
+    navigator.clipboard?.writeText(MAIL).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    }, () => {});
+  };
+
   const headLetters = useMemo(() => HEAD.split(""), []);
-  const paraWords = useMemo(() => PARA.split(" "), []);
   // per-letter scatter: where each letter's reflection starts
   const scatter = useMemo(() => headLetters.map((_, i) => ({
     dx: (hash(i + 1) - 0.5) * 120,
@@ -136,8 +161,8 @@ export default function Dive() {
     let arrivedAt = -1;
     let caretX: number[] = [];
     const measureCaret = () => {
-      caretX = eyeChars.current.map((el) => (el ? el.offsetLeft : 0));
-      const lastEl = eyeChars.current[eyeChars.current.length - 1];
+      caretX = mailChars.current.map((el) => (el ? el.offsetLeft : 0));
+      const lastEl = mailChars.current[mailChars.current.length - 1];
       if (lastEl) caretX.push(lastEl.offsetLeft + lastEl.offsetWidth);
     };
     measureCaret();
@@ -168,11 +193,11 @@ export default function Dive() {
     let finalApplied = false;
     const applyFinal = () => {
       const show = (el: HTMLElement | SVGElement | null) => { if (el) { put(el, "opacity", "1"); put(el, "transform", ""); } };
-      eyeChars.current.forEach((el, i) => { if (el) { el.textContent = EYEBROW[i]; el.dataset.s = "1"; show(el); } });
+      mailChars.current.forEach((el, i) => { if (el) { el.textContent = MAIL[i]; el.dataset.s = "1"; show(el); } });
       if (caretRef.current) put(caretRef.current, "opacity", "0");
+      show(mailCopyRef.current);
       letters.current.forEach(show);
       if (sheenRef.current) put(sheenRef.current, "opacity", "0");
-      words.current.forEach(show);
       if (frameRef.current) { put(frameRef.current, "strokeDashoffset", "0"); put(frameRef.current, "opacity", "1"); }
       if (fillRef.current) put(fillRef.current, "clipPath", "inset(0 0 0 0)");
       ctaChars.current.forEach(show);
@@ -216,31 +241,7 @@ export default function Dive() {
       const tx = textT(t);
       if (contentRef.current) {
         put(contentRef.current, "opacity", "1");
-        put(contentRef.current, "pointerEvents", tx > 0.84 || forced ? "auto" : "none");
-      }
-
-      // ── eyebrow: types on, a caret leading, two decoding glyphs ahead
-      const ne = eyeChars.current.length;
-      const pe = win(tx, W.eyebrow);
-      const typed = pe * ne;
-      const k = Math.floor(typed);
-      eyeChars.current.forEach((el, i) => {
-        if (!el) return;
-        if (i < k) {
-          if (el.dataset.s !== "1") { el.textContent = EYEBROW[i]; put(el, "opacity", "1"); el.dataset.s = "1"; }
-        } else if (i < k + 2 && pe > 0 && pe < 1 && EYEBROW[i] !== " ") {
-          el.textContent = GLYPHS[Math.floor(hash(i * 7.3 + Math.floor(time * 18)) * GLYPHS.length)];
-          put(el, "opacity", i === k ? "0.55" : "0.25");
-          el.dataset.s = "2";
-        } else if (el.dataset.s !== "0") {
-          el.textContent = EYEBROW[i]; put(el, "opacity", "0"); el.dataset.s = "0";
-        }
-      });
-      if (caretRef.current) {
-        const cx = caretX[Math.min(k, caretX.length - 1)] ?? 0;
-        const done = clamp01((tx - W.eyebrow[1]) / 0.03);
-        put(caretRef.current, "transform", `translateX(${cx.toFixed(1)}px)`);
-        put(caretRef.current, "opacity", pe > 0 ? (0.9 * (1 - done)).toFixed(3) : "0");
+        put(contentRef.current, "pointerEvents", tx > 0.84 || forced || openRef.current ? "auto" : "none");
       }
 
       // ── heading: letters rise out of their reflection, staggered
@@ -272,16 +273,33 @@ export default function Dive() {
         if (a > 0) put(sheenRef.current, "backgroundPosition", `${(115 - easeInOut(sp) * 130).toFixed(2)}% 0`);
       }
 
-      // ── paragraph: word by word
-      const nw = words.current.length;
-      const pp = win(tx, W.para);
-      words.current.forEach((el, i) => {
+      // ── contact: types on, a caret leading, two decoding glyphs ahead
+      const ne = mailChars.current.length;
+      const pe = win(tx, W.mail);
+      const k = Math.floor(pe * ne);
+      mailChars.current.forEach((el, i) => {
         if (!el) return;
-        const p = clamp01(pp * (nw + 2.5) - i);
-        const e = easeOut(p);
-        put(el, "opacity", e.toFixed(3));
-        put(el, "transform", p >= 1 ? "" : `translateY(${((1 - e) * 10).toFixed(2)}px)`);
+        if (i < k) {
+          if (el.dataset.s !== "1") { el.textContent = MAIL[i]; put(el, "opacity", "1"); el.dataset.s = "1"; }
+        } else if (i < k + 2 && pe > 0 && pe < 1) {
+          el.textContent = GLYPHS[Math.floor(hash(i * 7.3 + Math.floor(time * 18)) * GLYPHS.length)];
+          put(el, "opacity", i === k ? "0.55" : "0.25");
+          el.dataset.s = "2";
+        } else if (el.dataset.s !== "0") {
+          el.textContent = MAIL[i]; put(el, "opacity", "0"); el.dataset.s = "0";
+        }
       });
+      if (caretRef.current) {
+        const cx = caretX[Math.min(k, caretX.length - 1)] ?? 0;
+        const done = clamp01((tx - W.mail[1]) / 0.03);
+        put(caretRef.current, "transform", `translateX(${cx.toFixed(1)}px)`);
+        put(caretRef.current, "opacity", pe > 0 ? (0.9 * (1 - done)).toFixed(3) : "0");
+      }
+      if (mailCopyRef.current) {
+        const p = easeOut(win(tx, W.mailCopy));
+        put(mailCopyRef.current, "opacity", p.toFixed(3));
+        put(mailCopyRef.current, "transform", p >= 1 ? "" : `translateX(${((1 - p) * -6).toFixed(2)}px)`);
+      }
 
       // ── CTA: frame draws, fill wipes, label tracks in, offset frame settles
       if (frameRef.current) put(frameRef.current, "strokeDashoffset", (1 - easeInOut(win(tx, W.frame))).toFixed(4));
@@ -338,7 +356,7 @@ export default function Dive() {
       const dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
       last = now;
       const g = geometry();
-      const target = forced ? 1 : g.d;
+      const target = forced || openRef.current ? 1 : g.d;
       // far from the finale (e.g. after "back to the top") nothing should lag
       if (reducedMotion || !g.near) { tl.x = target; tl.v = 0; th.x = g.q; th.v = 0; }
       else {
@@ -362,6 +380,7 @@ export default function Dive() {
     const kick = () => {
       if (!raf) { last = performance.now(); raf = requestAnimationFrame(tick); }
     };
+    kickRef.current = kick;
     const onScroll = () => kick();
     const onFocus = () => { forced = true; kick(); };
     const onBlur = (e: FocusEvent) => {
@@ -389,6 +408,7 @@ export default function Dive() {
       section.removeEventListener("focusout", onBlur);
       if (raf) cancelAnimationFrame(raf);
       raf = 0;
+      kickRef.current = () => {};
       alloyBus.dive = 0;
       alloyBus.diveLive = false;
     };
@@ -418,16 +438,6 @@ export default function Dive() {
         </div>
 
         <div ref={contentRef} className={css.content} style={{ opacity: 0 }}>
-          <span className={css.eyebrow}>
-            <span className={css.srOnly}>{EYEBROW}</span>
-            <span aria-hidden="true">
-              {EYEBROW.split("").map((c, i) => (
-                <span key={i} ref={(el) => { eyeChars.current[i] = el; }} data-s="0" style={{ opacity: 0 }}>{c}</span>
-              ))}
-            </span>
-            <span ref={caretRef} className={css.caret} aria-hidden="true" />
-          </span>
-
           <h2 className={css.head}>
             <span className={css.srOnly}>{HEAD}</span>
             <span aria-hidden="true">
@@ -440,17 +450,26 @@ export default function Dive() {
             <span ref={sheenRef} className={css.sheen} aria-hidden="true">{HEAD}</span>
           </h2>
 
-          <p className={css.para}>
-            {paraWords.map((w, i) => (
-              <span key={i}>
-                <span ref={(el) => { words.current[i] = el; }} className={css.word} style={{ opacity: 0 }}>{w}</span>
-                {i < paraWords.length - 1 ? " " : ""}
+          <span className={css.mailRow}>
+            <span className={css.mail}>
+              <span className={css.srOnly}>{MAIL}</span>
+              <span aria-hidden="true">
+                {MAIL.split("").map((c, i) => (
+                  <span key={i} ref={(el) => { mailChars.current[i] = el; }} data-s="0" style={{ opacity: 0 }}>{c}</span>
+                ))}
               </span>
-            ))}
-          </p>
+              <span ref={caretRef} className={css.caret} aria-hidden="true" />
+            </span>
+            <button ref={mailCopyRef} type="button" className={css.mailCopy} onClick={copyMail} style={{ opacity: 0 }} aria-label={copied ? "Address copied" : `Copy ${MAIL}`}>
+              {copied ? "copied" : "copy"}
+            </button>
+          </span>
 
+          <div className={css.swap} data-open={open ? "" : undefined}>
+          <div className={css.rowWrap} aria-hidden={open} inert={open}>
+          <div className={css.rowClip}>
           <div className={css.row}>
-            <a ref={ctaRef} href="mailto:williamkeffer2005@gmail.com" className={css.cta}>
+            <button ref={ctaRef} type="button" className={css.cta} onClick={openSheet} aria-expanded={open}>
               <span ref={offsetRef} className={css.ctaOffset} aria-hidden="true" />
               <span ref={fillRef} className={css.ctaFill} aria-hidden="true" />
               <span ref={glintRef} className={css.ctaGlint} aria-hidden="true" />
@@ -465,12 +484,16 @@ export default function Dive() {
                   ))}
                 </span>
               </span>
-            </a>
+            </button>
             <button ref={backRef} type="button" onClick={() => scrollToSection("hero")} className={css.back}>
               <span ref={backLabelRef} className={css.backLabel} style={{ opacity: 0 }}>{BACK}</span>
               <span ref={arrowRef} className={css.backArrow} aria-hidden="true" style={{ opacity: 0 }}>&uarr;</span>
               <span ref={backLineRef} className={css.backLine} aria-hidden="true" />
             </button>
+          </div>
+          </div>
+          </div>
+          <LeaveMessage open={open} onClose={closeSheet} />
           </div>
 
           <span ref={copyRef} className={`mark-caption ${css.copy}`} style={{ opacity: 0 }}>

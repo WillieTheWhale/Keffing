@@ -131,3 +131,18 @@ branch `pre-optimization`.
   (lost the edge-on sliver's AA band) and rewriting two shader branches (one pixel off by one on
   the GPU).
 
+## Leave a message (2026-10-22)
+
+The Pure Signal card keeps its heading and animation; the eyebrow and the paragraph are gone. Under
+the heading the address types on (the old eyebrow's caret and decoding glyphs) with a copy link,
+and the CTA "Send me a message" unfolds the "Leave a message" sheet in place of the buttons
+(`LeaveMessage.tsx`): Bone paper and grain, an offset hairline frame, crop marks, a rule stack,
+ledger rows for name and message, the message on ruled lines, a typed receipt once sent. While
+the sheet is open the finale holds fully on screen, as it does for focus.
+
+The form posts to the `keffer-contact` Cloudflare Worker (`workers/contact-form`, deployed at
+keffer-contact.williamkeffer2005.workers.dev), which emails each message from signal@keffer.cafe to
+williamkeffer2005@gmail.com through Cloudflare Email Routing. keffer.cafe's DNS moved from Namecheap
+BasicDNS to Cloudflare for it (same website records, DNS only); a catch-all forwards any other
+@keffer.cafe mail to the same Gmail.
+

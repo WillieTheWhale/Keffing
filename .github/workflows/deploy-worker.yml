@@ -1,0 +1,48 @@
+name: Deploy contact Worker
+
+# The "Leave a message" form's Cloudflare Worker (workers/contact-form). It
+# redeploys whenever its code or config changes on main; the site itself
+# redeploys on every push (deploy.yml).
+#
+# Needs one repository secret, CLOUDFLARE_API_TOKEN: a Cloudflare API token
+# made from the "Edit Cloudflare Workers" template. Until it is set, runs skip
+# the deploy instead of failing.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "workers/contact-form/**"
+      - ".github/workflows/deploy-worker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "contact-worker"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Deploy
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        working-directory: workers/contact-form
+        run: npx --yes wrangler@4 deploy
+
+      - name: No token yet
+        if: env.CLOUDFLARE_API_TOKEN == ''
+        run: echo "::notice::CLOUDFLARE_API_TOKEN is not set, so the Worker was not deployed. Add it under Settings > Secrets and variables > Actions."

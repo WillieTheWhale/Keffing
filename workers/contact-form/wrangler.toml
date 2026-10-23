@@ -1,0 +1,24 @@
+# The Pure Signal card's "Leave a message" form posts here; each message is
+# emailed to William through Cloudflare Email Routing on keffer.cafe.
+name = "keffer-contact"
+account_id = "a13e9bf81833d9b789d3d4579922d91f"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+# Email Routing must be on for keffer.cafe, with the destination verified.
+send_email = [
+  { name = "MAIL", destination_address = "williamkeffer2005@gmail.com" },
+]
+
+[vars]
+FROM = "signal@keffer.cafe"
+TO = "williamkeffer2005@gmail.com"
+# the pages allowed to post (the live site, its github.io address, local dev)
+ALLOWED_ORIGINS = "https://keffer.cafe,https://www.keffer.cafe,https://williethewhale.github.io,http://localhost:3000"
+
+# at most 5 messages a minute from one address
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "7001"
+simple = { limit = 5, period = 60 }
