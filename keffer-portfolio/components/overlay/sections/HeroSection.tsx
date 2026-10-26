@@ -31,7 +31,7 @@ export default function HeroSection() {
             animate={entryDone ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
             transition={{ type: "spring", ...springs.gentle, delay: 0.6 }}
           >
-            Computer Science &times; Mathematics &times; Machine Learning
+            Mostly signal, some noise.
           </motion.p>
 
           {/* Record line in the reference's caption voice */}

@@ -42,6 +42,40 @@ const serverMono = localFont({
   display: "swap",
 });
 
+// Formulas (content/formulas.ts): Server Mono and Shippori Mincho are
+// Latin-only, so the background's formula blocks list these first. Each holds
+// only the Greek letters, sub/superscripts and math symbols the face after it
+// lacks, scaled to match it (scripts/asset-tools/formula_fonts.py); the
+// unicode-range keeps them out of every other piece of text.
+const formulaMono = localFont({
+  src: "./fonts/formula-mono.woff2",
+  variable: "--font-formula-mono",
+  weight: "400",
+  display: "swap",
+  preload: false,
+  adjustFontFallback: false,
+  declarations: [{ prop: "unicode-range", value: "U+0302-0308, U+0391-03F5, U+1D2C-1D6A, U+1FB1, U+2016, U+2032-2033, U+2070-209C, U+2102-2124, U+2190-21D4, U+2200-22A5, U+22C5, U+27E8-27E9, U+2C7C, U+1D53C" }],
+});
+const formulaSerif = localFont({
+  src: "./fonts/formula-serif.woff2",
+  variable: "--font-formula-serif",
+  weight: "400",
+  display: "swap",
+  preload: false,
+  adjustFontFallback: false,
+  declarations: [{ prop: "unicode-range", value: "U+0302-0308, U+0391-03F5, U+1D2C-1D6A, U+1FB1, U+2016, U+2032-2033, U+2070-209C, U+2102-2124, U+2190-21D4, U+2200-22A5, U+22C5, U+27E8-27E9, U+2C7C, U+1D53C" }],
+});
+// what neither of the two above has (← ∇ √ ≤ …), for both blocks
+const formulaSymbols = localFont({
+  src: "./fonts/formula-symbols.woff2",
+  variable: "--font-formula-symbols",
+  weight: "400",
+  display: "swap",
+  preload: false,
+  adjustFontFallback: false,
+  declarations: [{ prop: "unicode-range", value: "U+0302-0308, U+0391-03F5, U+1D2C-1D6A, U+1FB1, U+2016, U+2032-2033, U+2070-209C, U+2102-2124, U+2190-21D4, U+2200-22A5, U+22C5, U+27E8-27E9, U+2C7C, U+1D53C" }],
+});
+
 // SEO Metadata (§16)
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://keffer.cafe"),
@@ -76,7 +110,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${archivo.variable} ${shipporiMincho.variable} ${inter.variable} ${serverMono.variable}`}
+      className={`${archivo.variable} ${shipporiMincho.variable} ${inter.variable} ${serverMono.variable} ${formulaMono.variable} ${formulaSerif.variable} ${formulaSymbols.variable}`}
     >
       <body className="antialiased">
         {/* Skip to content link for accessibility (§15) */}

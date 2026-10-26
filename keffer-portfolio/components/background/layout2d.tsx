@@ -17,7 +17,7 @@ import { forwardRef, memo, useEffect, useImperativeHandle, useMemo, useRef, type
 import { homeScroll, type PageLayout } from "./engine";
 import type { PageFrame, PageKind, SectionId } from "./pieces";
 import { AsciiField, CropMarks, Crease, RingStar, Schematic, TitleBlock } from "./print";
-import { lyricsPool } from "@/content/lyrics";
+import { formulas, type FormulaId } from "@/content/formulas";
 import { ASCII_SKY } from "./asciiSky";
 import { withBase } from "@/lib/basePath";
 import { PAPER } from "./paper";
@@ -131,12 +131,12 @@ function HexDump({ rows, seed }: { rows: number; seed: number }) {
   );
 }
 
-function Typed({ frag, accent = false }: { frag: number; accent?: boolean }) {
-  const text = lyricsPool[frag % lyricsPool.length].text;
+function Typed({ formula, accent = false }: { formula: FormulaId; accent?: boolean }) {
+  const text = formulas[formula];
   return (
     <div style={accent
-      ? { fontFamily: "var(--font-accent), serif", fontSize: 12, lineHeight: 1.85, letterSpacing: "0.07em", color: "#1a1a1a", whiteSpace: "pre", opacity: 0.62 }
-      : { fontFamily: "var(--font-mono), monospace", fontSize: 9.5, lineHeight: 1.55, letterSpacing: "0.02em", color: "#1a1a1a", whiteSpace: "pre", opacity: 0.58 }}>
+      ? { fontFamily: "var(--font-formula-serif), var(--font-formula-symbols), var(--font-accent), serif", fontSize: 12, lineHeight: 1.85, letterSpacing: "0.07em", color: "#1a1a1a", whiteSpace: "pre", opacity: 0.62 }
+      : { fontFamily: "var(--font-formula-mono), var(--font-formula-symbols), var(--font-mono), monospace", fontSize: 9.5, lineHeight: 1.55, letterSpacing: "0.02em", color: "#1a1a1a", whiteSpace: "pre", opacity: 0.58 }}>
       {text}
     </div>
   );
@@ -180,12 +180,12 @@ const HOME_ITEMS: Item[] = [
   // lower left: the big ring star over an offset blue square — the sweep runs between them
   { layer: "under", sec: "hero", t: 0, x: 9.6, y: 66.5, w: 10.5, sq: true, pf: 0.64, m: { x: 12, y: 9.5, w: 16 }, node: <Block color={BLUE} to={BLUE_2} /> },
   { layer: "over", sec: "hero", t: 0, x: 4.8, y: 59.5, w: 13.5, sq: true, pf: 0.64, m: { x: 5, y: 5.5, w: 24 }, node: <RingStar band={0.17} stroke={1.2} /> },
-  { layer: "under", sec: "hero", t: 0, x: 4.6, y: 86, w: 16, pf: 0.66, m: { x: 6, y: 84, w: 70 }, node: <Typed frag={0} /> },
+  { layer: "under", sec: "hero", t: 0, x: 4.6, y: 86, w: 16, pf: 0.66, m: { x: 6, y: 72, w: 70 }, node: <Typed formula="grpo" /> },
   // lower right: a schematic sheet the plunge passes over
   { layer: "under", sec: "hero", t: 0, x: 63.5, y: 66, w: 25, h: 24, pf: 0.62, m: { x: 40, y: 72, w: 58, h: 20 }, node: <div style={{ position: "absolute", inset: 0, opacity: 0.4 }}><Schematic seed={3} w={400} h={240} noTitle /></div> },
   { layer: "over", sec: "hero", t: 0, x: 82.2, y: 84.6, w: 14, h: 10, pf: 0.62, m: null, node: <TitleBlock rows={["DWG  WK-2610-04", "SCALE  1 : 1", "SHEET  4 / 7", "REV  C", "DRN  W.K.  10/26"]} /> },
   { layer: "under", sec: "hero", t: 0, x: 88.5, y: 61.5, w: 6, h: 4.2, pf: 0.62, m: { x: 82, y: 58, w: 12, h: 2.6 }, node: <Block color={BLUE} /> },
-  { layer: "under", sec: "hero", t: 0, x: 45.5, y: 74, w: 14, pf: 0.62, m: null, node: <Typed frag={9} accent /> },
+  { layer: "under", sec: "hero", t: 0, x: 45.5, y: 74, w: 14, pf: 0.62, m: null, node: <Typed formula="reinforce" accent /> },
 
   // ══ ABOUT — first silence ═════════════════════════════════
   { layer: "under", sec: "about", t: 0.5, x: 3.2, y: 72, w: 8.5, h: 11, pf: 0.55, m: { x: 5, y: 74, w: 22, h: 9 }, node: <Panel src="about-chip.webp" /> },

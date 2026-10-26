@@ -107,7 +107,7 @@ export default function LeaveMessage({ open, onClose }: { open: boolean; onClose
           <div className={s.form}>
             <header className={`${s.item} ${s.head}`}>
               <h3 className={s.title}>Leave a message</h3>
-              <span className={s.ref}>form 07 · to w. keffer</span>
+              <span className={s.ref}>to w. keffer</span>
             </header>
             <span className={`${s.item} ${s.rules}`} aria-hidden="true"><i /><i /><i /></span>
 

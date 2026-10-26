@@ -60,7 +60,7 @@ export default function ContactSection() {
             animate={isInView ? { opacity: 1 } : {}}
             transition={{ delay: 0.8, duration: 1 }}
           >
-            designed &amp; built with next.js and typescript — one composition, drawn by hand
+            designed &amp; built with next.js and typescript
           </motion.p>
         </div>
       </div>

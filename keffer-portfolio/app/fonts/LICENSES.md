@@ -1,6 +1,7 @@
 # Self-hosted fonts
 
 All four faces are SIL Open Font License 1.1, vendored from the fontsource packages (no runtime or build-time requests to Google Fonts).
+The three formula-*.woff2 files are subsets of Noto fonts (also OFL 1.1), cut and scaled by scripts/asset-tools/formula_fonts.py and renamed Keffer Formula Mono / Serif / Symbols.
 
 ## @fontsource-variable/archivo
 
@@ -63,3 +64,13 @@ All four faces are SIL Open Font License 1.1, vendored from the fontsource packa
     The goals of the Open Font License (OFL) are to stimulate worldwide
     development of collaborative font projects, to support the font creation
     efforts of academic and linguistic communities, and to provide a free and
+
+## Noto Sans Mono, Noto Serif, Noto Sans Math (google/fonts, ofl/) → formula-mono, formula-serif, formula-symbols
+
+    Copyright 2022 The Noto Project Authors (https://github.com/notofonts/latin-greek-cyrillic)
+    Copyright 2022 The Noto Project Authors (https://github.com/notofonts/math)
+
+    This Font Software is licensed under the SIL Open Font License, Version 1.1.
+    This license is available with a FAQ at: https://openfontlicense.org
+    Modified: subset to Greek, sub/superscripts and math symbols, outlines
+    scaled, family renamed. No Reserved Font Names apply.

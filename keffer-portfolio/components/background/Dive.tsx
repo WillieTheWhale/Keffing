@@ -9,7 +9,7 @@
 // JavaScript on a scroll-scrubbed timeline (scrubbable both ways) that is
 // smoothed by a critically damped spring, so a fast flick never pops:
 //
-//   threshold   the red rule draws out from the centre, its label types on
+//   threshold   the red rule draws out from the centre
 //   heading     letters rise out of their reflection (mirrored → upright)
 //               from scattered positions, staggered, then a chrome sheen
 //               sweeps across them
@@ -20,6 +20,7 @@
 //               "Leave a message" sheet in place of the buttons
 //               (LeaveMessage.tsx)
 //   back to top the label slides in, its underline draws, the arrow lifts
+//   links       GitHub, LinkedIn, Instagram and Signal rise in over the ©
 //   ©           lands last, with a small settle
 //
 // Idle life once arrived: a slow sheen across the heading every few
@@ -35,11 +36,17 @@ import { alloyBus, BREATH, END_SKY } from "./bus";
 import LeaveMessage from "./LeaveMessage";
 import css from "./Dive.module.css";
 
-const LABEL = "Threshold — diving to pure signal";
 const HEAD = "Pure signal";
 const MAIL = CONTACT_EMAIL;
 const CTA = "Send me a message";
 const BACK = "back to the top";
+const LINKS = [
+  { label: "GitHub", href: "https://github.com/WillieTheWhale" },
+  { label: "LinkedIn", href: "https://www.linkedin.com/in/williamkeffer/" },
+  { label: "Instagram", href: "https://www.instagram.com/williamkefferr/" },
+];
+// a Signal username has no public link; clicking it copies it
+const SIGNAL = "wilk28.74";
 const GLYPHS = "01░▒/\\|—·:+×#";
 
 // timeline windows, in dive progress (0..1)
@@ -55,6 +62,7 @@ const W = {
   back: [0.85, 0.9],
   line: [0.875, 0.93],
   arrow: [0.9, 0.945],
+  links: [0.91, 0.965],
   copy: [0.925, 0.985],
 } as const;
 
@@ -100,7 +108,6 @@ export default function Dive() {
   const breathRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const ruleRef = useRef<HTMLDivElement>(null);
-  const ruleChars = useRef<(HTMLSpanElement | null)[]>([]);
   const mailChars = useRef<(HTMLSpanElement | null)[]>([]);
   const caretRef = useRef<HTMLSpanElement>(null);
   const mailCopyRef = useRef<HTMLButtonElement>(null);
@@ -116,6 +123,7 @@ export default function Dive() {
   const backLabelRef = useRef<HTMLSpanElement>(null);
   const backLineRef = useRef<HTMLSpanElement>(null);
   const arrowRef = useRef<HTMLSpanElement>(null);
+  const linksRef = useRef<HTMLSpanElement>(null);
   const copyRef = useRef<HTMLSpanElement>(null);
 
   // the message sheet: open, it holds the card fully on screen (like focus does)
@@ -139,6 +147,13 @@ export default function Dive() {
     navigator.clipboard?.writeText(MAIL).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
+    }, () => {});
+  };
+  const [signalCopied, setSignalCopied] = useState(false);
+  const copySignal = () => {
+    navigator.clipboard?.writeText(SIGNAL).then(() => {
+      setSignalCopied(true);
+      setTimeout(() => setSignalCopied(false), 1600);
     }, () => {});
   };
 
@@ -205,6 +220,7 @@ export default function Dive() {
       if (backLabelRef.current) { show(backLabelRef.current); put(backLabelRef.current, "clipPath", "none"); }
       if (backLineRef.current) put(backLineRef.current, "transform", "scaleX(1)");
       show(arrowRef.current);
+      show(linksRef.current);
       show(copyRef.current);
     };
 
@@ -224,9 +240,6 @@ export default function Dive() {
       // ── threshold
       const tq = th.x;
       if (ruleRef.current) put(ruleRef.current, "transform", `scaleX(${easeInOut(clamp01(tq / 0.6)).toFixed(4)})`);
-      const nRule = ruleChars.current.length;
-      const shownRule = Math.round(clamp01((tq - 0.25) / 0.6) * nRule);
-      ruleChars.current.forEach((el, i) => { if (el) put(el, "opacity", i < shownRule ? "1" : "0"); });
 
       if (reducedMotion) {
         // a calm crossfade: every component in its final state, faded as one
@@ -342,6 +355,13 @@ export default function Dive() {
         put(arrowRef.current, "transform", `translateY(${((1 - backOut(p, 2)) * 9 + bob).toFixed(2)}px)`);
       }
 
+      // ── links: rise in over the ©
+      if (linksRef.current) {
+        const p = easeOut(win(tx, W.links));
+        put(linksRef.current, "opacity", p.toFixed(3));
+        put(linksRef.current, "transform", p >= 1 ? "" : `translateY(${((1 - p) * 8).toFixed(2)}px)`);
+      }
+
       // ── ©: lands last
       if (copyRef.current) {
         const p = win(tx, W.copy);
@@ -419,14 +439,6 @@ export default function Dive() {
       {/* The one red element on the site: the threshold */}
       <div className={css.threshold}>
         <div ref={ruleRef} className={css.rule} />
-        <span className={css.ruleLabel}>
-          <span className={css.srOnly}>{LABEL}</span>
-          <span aria-hidden="true">
-            {LABEL.split("").map((c, i) => (
-              <span key={i} ref={(el) => { ruleChars.current[i] = el; }} style={{ opacity: 0 }}>{c}</span>
-            ))}
-          </span>
-        </span>
       </div>
 
       <div className={css.stage}>
@@ -496,9 +508,19 @@ export default function Dive() {
           <LeaveMessage open={open} onClose={closeSheet} />
           </div>
 
-          <span ref={copyRef} className={`mark-caption ${css.copy}`} style={{ opacity: 0 }}>
-            &copy; {year} william keffer
-          </span>
+          <div className={css.foot}>
+            <span ref={linksRef} className={css.links} style={{ opacity: 0 }}>
+              {LINKS.map((l) => (
+                <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" className={css.link}>{l.label}</a>
+              ))}
+              <button type="button" className={css.link} onClick={copySignal} aria-label={signalCopied ? "Signal username copied" : `Copy Signal username ${SIGNAL}`}>
+                Signal: {signalCopied ? "copied" : SIGNAL}
+              </button>
+            </span>
+            <span ref={copyRef} className={`mark-caption ${css.copy}`} style={{ opacity: 0 }}>
+              &copy; {year} william keffer
+            </span>
+          </div>
         </div>
       </div>
     </section>
