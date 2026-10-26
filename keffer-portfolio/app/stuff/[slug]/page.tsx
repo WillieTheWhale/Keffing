@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { stuffCollections, stuffById } from "@/content/stuff";
+import { stuffPages, stuffById } from "@/content/stuff";
 import StuffPage from "@/components/stuff/StuffPage";
 
 export function generateStaticParams() {
-  return stuffCollections.map((c) => ({ slug: c.id }));
+  return stuffPages.map((c) => ({ slug: c.id }));
 }
 
 export async function generateMetadata({

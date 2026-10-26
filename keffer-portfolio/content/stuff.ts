@@ -33,6 +33,9 @@ export interface StuffCollection {
   /** Column label for `meta` on the catalogue page. */
   metaLabel: string;
   items: StuffItem[];
+  /** An outside site the collection lives on: its card links there, and it
+   *  has no catalogue page of its own. */
+  href?: string;
 }
 
 const pending = (n: number): StuffItem[] =>
@@ -84,7 +87,8 @@ export const stuffCollections: StuffCollection[] = [
     standfirst:
       "A running log of the Stüssy archive: what's in the rotation, what's been tracked down, and what's still being hunted.",
     metaLabel: "Season",
-    items: pending(5),
+    items: [],
+    href: "https://stussy.ink",
   },
   {
     id: "reading",
@@ -98,8 +102,11 @@ export const stuffCollections: StuffCollection[] = [
   },
 ];
 
+/** The collections with a catalogue page here (the rest link out). */
+export const stuffPages = stuffCollections.filter((c) => !c.href);
+
 export const stuffById = (id: string): StuffCollection | undefined =>
-  stuffCollections.find((c) => c.id === id);
+  stuffPages.find((c) => c.id === id);
 
 export const loggedCount = (c: StuffCollection): number =>
   c.items.filter((i) => !i.pending).length;
