@@ -1,0 +1,301 @@
+/* Experience — the sky strips (ExperienceSection.tsx). */
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+/* the colonnade, mounted: an offset hairline frame and crop marks */
+.mount { position: relative; margin-top: 4px; }
+.offset {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(27, 29, 34, 0.3);
+  transform: translate(-16px, 16px);
+  opacity: 0;
+  pointer-events: none;
+}
+.marks { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+.mount[data-in] .offset {
+  transform: translate(-9px, 9px);
+  opacity: 1;
+  transition: transform 900ms var(--ease-reveal) 500ms, opacity 600ms linear 500ms;
+}
+.mount[data-in] .marks { opacity: 1; transition: opacity 500ms linear 700ms; }
+
+.row {
+  --k: 1;
+  --gap: 10px;
+  position: relative;
+  display: flex;
+  gap: var(--gap);
+  height: clamp(500px, 68vh, 640px);
+}
+@media (max-width: 1180px) { .row { --k: 0.74; } }
+@media (max-width: 960px) { .row { --k: 0.52; --gap: 7px; } }
+
+/* a strip: its print, and the file that unfolds beside it */
+.strip {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex: 0 0 calc(var(--w) * var(--k));
+  clip-path: inset(100% 0 0 0);
+  transition: flex-grow 760ms var(--ease-reveal), flex-basis 760ms var(--ease-reveal);
+}
+.mount[data-in] .strip {
+  clip-path: inset(0 0 0 0);
+  transition:
+    clip-path 1000ms var(--ease-reveal) calc(var(--i) * 75ms),
+    flex-grow 760ms var(--ease-reveal),
+    flex-basis 760ms var(--ease-reveal);
+}
+.strip[data-open] { flex: 1 1 0; }
+
+.face {
+  position: relative;
+  display: block;
+  flex: 0 0 100%;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  background: #b9c6dc;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: flex-basis 760ms var(--ease-reveal);
+}
+.strip[data-open] .face { flex-basis: 34%; cursor: default; }
+.strip[data-kind="org"] .face { background: #b8babd; }
+.face:focus-visible { outline: 2px solid #3d63b8; outline-offset: 3px; }
+
+.photo { position: absolute; inset: 0; }
+.photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 1200ms var(--ease-reveal), filter 400ms linear;
+}
+/* beyond the work: the same skies, printed mono */
+.strip[data-kind="org"] .photo img { filter: grayscale(1) contrast(1.22) brightness(1.04); }
+@media (hover: hover) {
+  .strip:not([data-open]) .face:hover .photo img { transform: scale(1.04); }
+}
+
+/* a faint shade at the foot, so the role reads over bright cloud */
+.shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(12, 20, 42, 0.34), rgba(12, 20, 42, 0) 42%);
+  pointer-events: none;
+}
+
+/* the mark, set down the strip */
+.mark {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  writing-mode: vertical-rl;
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+  font-weight: 800;
+  font-stretch: 125%;
+  font-size: clamp(16px, calc(24px * var(--k) + 6px), 30px);
+  line-height: 1;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #fff;
+  text-shadow: 0 0 22px rgba(14, 24, 52, 0.38);
+  transition: left 760ms var(--ease-reveal), transform 760ms var(--ease-reveal), font-size 760ms var(--ease-reveal);
+}
+.strip[data-open] .mark { left: 18px; transform: none; font-size: clamp(30px, 3.6vw, 48px); }
+
+.role {
+  position: absolute;
+  right: 7px;
+  bottom: 14px;
+  writing-mode: vertical-rl;
+  font-family: var(--font-mono);
+  font-style: italic;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 0 8px rgba(14, 24, 52, 0.45);
+  transition: opacity 240ms linear;
+}
+.strip[data-open] .role { opacity: 0; }
+
+/* the foot label on the widened print */
+.plate {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 11px 13px 12px;
+  background: #f3f3f1;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+  font-family: var(--font-accent), Georgia, serif;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #1b1d22;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 160ms linear, transform 160ms var(--ease-reveal);
+}
+.strip[data-open] .plate {
+  opacity: 1;
+  transform: none;
+  transition: opacity 420ms linear 420ms, transform 700ms var(--ease-reveal) 420ms;
+}
+.plateRole { font-size: 13px; }
+.plateWhen {
+  margin-top: 5px;
+  font-family: var(--font-mono);
+  font-style: italic;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+/* the file beside it */
+.panel {
+  flex: 0 0 0;
+  min-width: 0;
+  margin-left: 0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  opacity: 0;
+  transition: opacity 160ms linear, margin-left 760ms var(--ease-reveal);
+}
+.strip[data-open] .panel {
+  flex: 1 1 0;
+  margin-left: var(--gap);
+  opacity: 1;
+  transition: opacity 500ms linear 300ms, margin-left 760ms var(--ease-reveal);
+}
+.panelIn {
+  display: flex;
+  flex-direction: column;
+  min-width: 290px;
+  height: 100%;
+  padding: 28px 30px 26px;
+  overflow-y: auto;
+}
+
+.org {
+  margin: 0 0 14px;
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+  font-weight: 800;
+  font-stretch: 115%;
+  font-size: clamp(20px, 2vw, 28px);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  color: #000;
+}
+.line {
+  margin: 0 0 16px;
+  max-width: 34em;
+  font-family: var(--font-accent), Georgia, serif;
+  font-size: clamp(16px, 1.45vw, 19px);
+  line-height: 1.55;
+  color: #12151c;
+}
+.detail {
+  margin: 0 0 16px;
+  max-width: 62ch;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.65;
+  color: #3a3d44;
+}
+/* narrower panels keep the opening of the description; the case file has the rest */
+@media (min-width: 768px) and (max-width: 1180px) {
+  .detail { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 8; overflow: hidden; }
+}
+@media (min-width: 768px) and (max-width: 960px) {
+  .detail { -webkit-line-clamp: 6; }
+}
+.tags { margin: 0 0 18px; max-width: 62ch; }
+.links { display: flex; flex-wrap: wrap; gap: 22px; margin: auto 0 0; padding-top: 6px; }
+
+/* the key under the colonnade */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 26px 0 0;
+  font-family: var(--font-mono);
+  font-style: italic;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: rgba(0, 0, 0, 0.6);
+}
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.swatchSky, .swatchMono { display: inline-block; width: 18px; height: 10px; }
+.swatchSky { background: linear-gradient(90deg, #3d63b8, #8eacdf); }
+.swatchMono { background: linear-gradient(90deg, #4d5157, #c4c6ca); }
+
+/* phones: the strips lie down as bands, each file opening below its band */
+@media (max-width: 767px) {
+  .offset { display: none; }
+  .row { flex-direction: column; height: auto; gap: 8px; }
+  .strip, .strip[data-open] { flex: none; flex-direction: column; }
+  .face, .strip[data-open] .face {
+    flex: none;
+    width: 100%;
+    height: 78px;
+    transition: height 600ms var(--ease-reveal);
+  }
+  .strip[data-open] .face { height: 168px; }
+  .mark, .strip[data-open] .mark {
+    top: 15px;
+    left: 16px;
+    transform: none;
+    writing-mode: horizontal-tb;
+    font-size: 22px;
+  }
+  .role, .strip[data-open] .role {
+    right: auto;
+    left: 16px;
+    bottom: 13px;
+    writing-mode: horizontal-tb;
+    transform: none;
+  }
+  .strip[data-open] .role { opacity: 0; }
+  .plate { left: 12px; right: 12px; bottom: 12px; }
+  .panel, .strip[data-open] .panel {
+    display: grid;
+    flex: none;
+    grid-template-rows: 0fr;
+    margin-left: 0;
+    transition: grid-template-rows 600ms var(--ease-reveal), opacity 300ms linear;
+  }
+  .strip[data-open] .panel { grid-template-rows: 1fr; }
+  .panelIn { min-width: 0; min-height: 0; height: auto; overflow: hidden; padding: 0 18px; }
+  .strip[data-open] .panelIn { padding: 20px 18px 22px; }
+  .org { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .strip, .mount[data-in] .strip, .face, .photo img, .mark, .role, .plate, .strip[data-open] .plate,
+  .panel, .strip[data-open] .panel, .offset, .mount[data-in] .offset, .marks, .mount[data-in] .marks {
+    transition: none;
+  }
+  .strip { clip-path: none; }
+}

@@ -336,38 +336,3 @@ export const projects: Project[] = projectCatalog.map((project, index) => ({
     skyFragmentCount: 2 + (index % 3),
   },
 }));
-
-export interface Extracurricular {
-  id: string;
-  title: string;
-  role: string;
-  description: string;
-  url?: string;
-}
-
-export const extracurriculars: Extracurricular[] = [
-  {
-    id: "nscc",
-    title: "Natural Sciences Computing Club",
-    role: "President & Founder",
-    description:
-      "NSCC bridges the gap between traditional science education and the computational skills essential to modern research. We create computational models for natural sciences research, and our goal is to build a community where scientists confidently use code to advance their fields, cultivating the next generation of computationally fluent researchers ready to work at the intersection of data and discovery.",
-    url: "https://www.nsccatunc.org/",
-  },
-  {
-    id: "unc-sg",
-    title: "UNC Student Government",
-    role: "Head of Web Development",
-    description:
-      "Rebuilt the Executive Branch website from scratch, migrating off WordPress to a custom application on Red Hat OpenShift, and manage the full deployment pipeline including DNS, SSL/TLS, and cloud infrastructure.",
-    url: "https://executivebranch.unc.edu/",
-  },
-  {
-    id: "urc",
-    title: "Undergraduate Research Conference at UNC",
-    role: "Director of Technology",
-    description:
-      "Designed the conference logo, built the event website, and manage the conference's full digital presence. The site serves as the primary platform for applicant outreach, event information, and sponsor engagement for a one-day research showcase in the Campus Union's Great Hall.",
-    url: "https://uncurc.com/",
-  },
-];
