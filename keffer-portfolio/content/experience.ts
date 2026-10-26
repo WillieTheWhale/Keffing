@@ -1,4 +1,5 @@
-// The Experience section's six entries (ExperienceSection.tsx), newest first.
+// The Experience section's six entries (ExperienceSection.tsx), newest first
+// except the wave maker, which sits ahead of Blockchain at Berkeley by choice.
 // Roles and dates follow LinkedIn (October 2026); the wave maker's details
 // come from its repository (adrhito/wavemaker-f25). Where a source gives no
 // field, it is left out rather than guessed. Entries with a case file have
@@ -56,21 +57,9 @@ export const experienceEntries: ExperienceEntry[] = [
     tags: [],
   },
   {
-    id: "blockchain-berkeley",
-    org: "Blockchain at Berkeley",
-    mark: "Blockchain",
-    role: "Analyst",
-    when: "Jun – Aug 2026",
-    kind: "org",
-    line: "Analyst on the prediction-markets team.",
-    tags: [],
-    url: "https://blockchain.studentorg.berkeley.edu/",
-    host: "blockchain at berkeley",
-  },
-  {
     id: "eel",
     org: "Experimental Engineering Lab and the Joint Fluids Lab",
-    mark: "EEL",
+    mark: "WaveMaker",
     role: "Undergraduate Student Researcher",
     when: "Nov 2025 – present",
     kind: "work",
@@ -82,6 +71,18 @@ export const experienceEntries: ExperienceEntry[] = [
     host: "github",
     logo: withBase("/assets/logos/eel.jpg"),
     caseFile: "/work/eel",
+  },
+  {
+    id: "blockchain-berkeley",
+    org: "Blockchain at Berkeley",
+    mark: "Blockchain",
+    role: "Analyst",
+    when: "Jun – Aug 2026",
+    kind: "org",
+    line: "Analyst on the prediction-markets team.",
+    tags: [],
+    url: "https://blockchain.studentorg.berkeley.edu/",
+    host: "blockchain at berkeley",
   },
   {
     id: "nscc",
