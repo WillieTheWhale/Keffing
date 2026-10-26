@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { withBase } from "@/lib/basePath";
 import { CONTACT_EMAIL, CONTACT_ENDPOINT } from "@/lib/contact";
+import { track } from "@/lib/analytics";
 import { PAPER } from "./paper";
 import { CropMarks } from "./print";
 import s from "./LeaveMessage.module.css";
@@ -71,6 +72,7 @@ export default function LeaveMessage({ open, onClose }: { open: boolean; onClose
       });
       const body = (await res.json().catch(() => ({}))) as { ok?: boolean };
       if (!res.ok || !body.ok) throw new Error(String(res.status));
+      track("message-sent");
       setRx(stamp(new Date()));
       setState("sent");
       setTimeout(() => againRef.current?.focus({ preventScroll: true }), 80);

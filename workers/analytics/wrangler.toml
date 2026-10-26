@@ -1,0 +1,57 @@
+# keffer.cafe's own visitor analytics. The site reports each page view to
+# POST /e; Cloudflare adds where the reader is (request.cf), D1 keeps it, and
+# the private dashboard in public/ reads it back once you've signed in with a
+# link emailed to you.
+name = "keffer-analytics"
+account_id = "a13e9bf81833d9b789d3d4579922d91f"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+# only signal.keffer.cafe: a same-site address, so blockers that drop
+# third-party beacons (uBlock's $ping,3p) leave the site's own count alone
+workers_dev = false
+preview_urls = false
+routes = [{ pattern = "signal.keffer.cafe", custom_domain = true }]
+
+# sign-in links and the weekly digest; Email Routing is on for keffer.cafe
+send_email = [
+  { name = "MAIL", destination_address = "williamkeffer2005@gmail.com" },
+]
+
+# the dashboard (static); /e, /api/* and /auth/* fall through to the Worker
+[assets]
+directory = "./public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "keffer-analytics"
+database_id = "aaca08b2-77bf-4a65-8204-20de5e809d0e"
+migrations_dir = "migrations"
+
+[vars]
+FROM = "signal@keffer.cafe"
+TO = "williamkeffer2005@gmail.com"
+DASHBOARD = "https://signal.keffer.cafe"
+# the pages allowed to report views (the live site, its github.io address, local dev)
+SITE_ORIGINS = "https://keffer.cafe,https://www.keffer.cafe,https://williethewhale.github.io,http://localhost:3000"
+# "weekly" mails a summary every Monday morning; "off" stops it
+DIGEST = "weekly"
+
+# at most 120 reports a minute from one address
+[[ratelimits]]
+name = "HITS"
+namespace_id = "7002"
+simple = { limit = 120, period = 60 }
+
+# at most 3 sign-in links a minute, whoever asks
+[[ratelimits]]
+name = "LOGIN"
+namespace_id = "7003"
+simple = { limit = 3, period = 60 }
+
+# Mondays 13:00 UTC (9 am Eastern in summer, 8 am in winter): the digest,
+# then a sweep of spent sign-in links and old salts
+[triggers]
+crons = ["0 13 * * 1"]
+
+[observability]
+enabled = true

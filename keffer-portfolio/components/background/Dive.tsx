@@ -32,6 +32,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { scrollToSection } from "@/lib/scroll";
 import { CONTACT_EMAIL } from "@/lib/contact";
+import { track } from "@/lib/analytics";
 import { alloyBus, BREATH, END_SKY } from "./bus";
 import LeaveMessage from "./LeaveMessage";
 import css from "./Dive.module.css";
@@ -150,6 +151,7 @@ export default function Dive() {
   const [copied, setCopied] = useState(false);
   const copyMail = () => {
     navigator.clipboard?.writeText(MAIL).then(() => {
+      track("copy", "email");
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     }, () => {});
@@ -157,6 +159,7 @@ export default function Dive() {
   const [signalCopied, setSignalCopied] = useState(false);
   const copySignal = () => {
     navigator.clipboard?.writeText(SIGNAL).then(() => {
+      track("copy", "signal");
       setSignalCopied(true);
       setTimeout(() => setSignalCopied(false), 1600);
     }, () => {});
