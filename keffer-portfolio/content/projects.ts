@@ -20,26 +20,13 @@ export interface Project {
 
 export const experience: Project[] = [
   {
-    id: "blockd",
-    title: "Blockd",
-    description:
-      "Blockd is an enterprise-grade interview security platform that combines a custom Chromium browser with AI-powered anti-cheating detection to preserve the integrity of remote interviews. The platform deploys a suite of real-time monitoring tools, including eye tracking via MediaPipe, multi-LLM answer semantic analysis, mode collapse screening, process detection for screen recording software, VM detection, and window focus tracking to identify candidates who may be using unauthorized assistance during live interviews. On the interviewer side, a React-based web dashboard provides reports on security events, gaze heatmaps, AI detection confidence scores, and live video feeds in real time, giving hiring teams full transparency into each session. Built on a microservices architecture with eight backend services, WebRTC video streaming, WebSocket real-time communication, and a Kubernetes-ready infrastructure.",
-    tags: ["Chromium", "MediaPipe", "WebRTC", "Microservices", "React", "Kubernetes"],
-    url: "https://www.linkedin.com/company/blockdcompany/",
-    image: withBase("/assets/logos/blockd.png"),
-    sceneHints: {
-      burstDirection: -30,
-      accentDensity: 0.2,
-      skyFragmentCount: 3,
-    },
-  },
-  {
     id: "eel",
     title: "Experimental Engineering Lab",
     description:
-      "The Experimental Engineering Lab (EEL) is an undergraduate research lab at UNC dedicated to hands-on engineering projects and interdisciplinary collaboration. I have been responsible for designing, developing, and maintaining the site, managing its deployment on Red Hat OpenShift through an automated CI/CD pipeline.",
-    tags: ["Web Development", "OpenShift", "CI/CD"],
+      "Control software for the fluid dynamics lab's 13,500-gallon wave maker, built with the Experimental Engineering Lab and the Joint Fluids Lab at UNC. Thirty LinMot pistons in three rows of ten are driven by an Allen-Bradley ControlLogix PLC: operators pick pistons on a drawing of the tank, set stroke and speed, and run waves, saved presets or single soliton pulses. It comes with a simulated wave maker for learning away from the tank, a command-line driver for scripted runs, and a camera module that measures the water through the tank wall. I also design and maintain the lab's website, deployed to Red Hat OpenShift through CI/CD.",
+    tags: ["Python", "Tkinter", "PLC", "EtherNet/IP", "OpenCV", "OpenShift"],
     url: "https://eel.unc.edu",
+    github: "https://github.com/adrhito/wavemaker-f25",
     image: withBase("/assets/logos/eel.jpg"),
     sceneHints: {
       burstDirection: 45,

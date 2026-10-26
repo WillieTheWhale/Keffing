@@ -1,7 +1,8 @@
-// The Experience section's six entries (ExperienceSection.tsx): roles and
-// research, then the organisations beyond the work. Roles and dates come from
-// the 2026 résumé; where it gives none, the field is left out rather than
-// guessed. The three roles also have case files (content/projects.ts).
+// The Experience section's six entries (ExperienceSection.tsx), newest first.
+// Roles and dates follow LinkedIn (October 2026); the wave maker's details
+// come from its repository (adrhito/wavemaker-f25). Where a source gives no
+// field, it is left out rather than guessed. Entries with a case file have
+// one on this site (content/projects.ts).
 
 import { withBase } from "@/lib/basePath";
 
@@ -17,8 +18,8 @@ export interface ExperienceEntry {
   kind: "work" | "org";
   /** One sentence: what it is / what I did. */
   line: string;
-  /** The full description, as on the site today. */
-  detail: string;
+  /** More, when there is more to say than the line. */
+  detail?: string;
   tags: string[];
   url?: string;
   /** The url's host, for a typed link. */
@@ -30,86 +31,83 @@ export interface ExperienceEntry {
 
 export const experienceEntries: ExperienceEntry[] = [
   {
-    id: "blockd",
-    org: "Blockd",
-    mark: "Blockd",
+    id: "ai-research",
+    org: "Artificial Intelligence Research, UNC Chapel Hill",
+    mark: "Heelcode",
+    role: "Artificial Intelligence Researcher",
+    when: "Sep 2026 – present",
     kind: "work",
-    line: "An interview-integrity platform: a locked-down Chromium browser with eye tracking, AI-answer detection and live security monitoring.",
+    line: "Building a custom agent harness for undergraduate CS classrooms with Dr. Prasun Dewan.",
     detail:
-      "Blockd is an enterprise-grade interview security platform that combines a custom Chromium browser with AI-powered anti-cheating detection to preserve the integrity of remote interviews. Real-time monitoring includes eye tracking via MediaPipe, multi-LLM answer analysis, mode-collapse screening, screen-recording and VM detection, and window-focus tracking. Interviewers get a React dashboard with security events, gaze heatmaps, AI-detection confidence and live video, on eight backend services with WebRTC, WebSockets and Kubernetes-ready infrastructure.",
-    tags: ["Chromium", "MediaPipe", "WebRTC", "Microservices", "React", "Kubernetes"],
-    url: "https://www.linkedin.com/company/blockdcompany/",
-    host: "linkedin",
-    logo: withBase("/assets/logos/blockd.png"),
-    caseFile: "/work/blockd",
+      "Heelcode is a fork of OpenCode wired to UNC's PromptLab: a local coding-agent harness whose model traffic runs through a secure, OpenAI-compatible daemon and the student's own authenticated browser session.",
+    tags: ["TypeScript", "Agent Tooling", "PromptLab", "OpenAI Compatible"],
+    url: "https://github.com/WillieTheWhale/heelcode",
+    host: "github",
+    caseFile: "/work/heelcode",
+  },
+  {
+    id: "caia",
+    org: "Carolina AI Alignment",
+    mark: "AI Safety",
+    role: "AI Safety Fellow",
+    when: "Aug 2026 – present",
+    kind: "org",
+    line: "A fellowship on alignment and governance in AI safety, with UNC's student community working to reduce catastrophic AI risk.",
+    tags: [],
+  },
+  {
+    id: "blockchain-berkeley",
+    org: "Blockchain at Berkeley",
+    mark: "Blockchain",
+    role: "Analyst",
+    when: "Jun – Aug 2026",
+    kind: "org",
+    line: "Analyst on the prediction-markets team.",
+    tags: [],
+    url: "https://blockchain.studentorg.berkeley.edu/",
+    host: "blockchain at berkeley",
   },
   {
     id: "eel",
-    org: "Experimental Engineering Lab",
+    org: "Experimental Engineering Lab and the Joint Fluids Lab",
     mark: "EEL",
-    role: "Undergraduate Researcher",
-    when: "Fall 2025 – present",
+    role: "Undergraduate Student Researcher",
+    when: "Nov 2025 – present",
     kind: "work",
-    line: "Design and maintain the lab's website, deployed to Red Hat OpenShift through CI/CD, and rewrote the control software for a 10,000-gallon wave maker.",
+    line: "Write and maintain the software that runs the fluid dynamics lab's 13,500-gallon wave maker.",
     detail:
-      "The Experimental Engineering Lab (EEL) is an undergraduate research lab at UNC dedicated to hands-on engineering projects and interdisciplinary collaboration. I design, develop and maintain the site and manage its deployment on Red Hat OpenShift through an automated CI/CD pipeline.",
-    tags: ["Web Development", "OpenShift", "CI/CD"],
-    url: "https://eel.unc.edu",
-    host: "eel.unc.edu",
+      "Thirty LinMot pistons in three rows of ten, driven by an Allen-Bradley ControlLogix PLC. Operators pick pistons on a drawing of the tank, set stroke and speed, and run waves, saved presets or single soliton pulses. It comes with a simulated wave maker for learning away from the tank, a command-line driver for scripted runs, and a camera module that measures the water through the tank wall.",
+    tags: ["Python", "Tkinter", "PLC", "EtherNet/IP", "OpenCV"],
+    url: "https://github.com/adrhito/wavemaker-f25",
+    host: "github",
     logo: withBase("/assets/logos/eel.jpg"),
     caseFile: "/work/eel",
-  },
-  {
-    id: "duke",
-    org: "Duke University, Dept. of Anesthesiology",
-    mark: "Duke",
-    role: "Research Intern",
-    when: "Summer 2023",
-    kind: "work",
-    line: "Reviewed clinical studies and modeled perioperative sleep outcomes in a meta-analysis with Duke anesthesiologists.",
-    detail:
-      "Conducted a meta-analysis with anesthesiologists on the effects of anesthesia on perioperative sleep outcomes, applying statistical modeling and systematic review methods across clinical studies.",
-    tags: ["Meta-Analysis", "Statistical Modeling", "Clinical Research"],
-    caseFile: "/work/duke",
   },
   {
     id: "nscc",
     org: "Natural Sciences Computing Club",
     mark: "NSCC",
     role: "President & Founder",
-    when: "Fall 2024 – present",
+    when: "Oct 2025 – present",
     kind: "org",
-    line: "Lead interdisciplinary teams building proton-therapy Bragg peak and quantum-tunneling simulations.",
+    line: "Founded and lead UNC's club bridging biology, chemistry and physics with practical computing.",
     detail:
-      "NSCC bridges the gap between traditional science education and the computational skills modern research needs. We build computational models for natural-sciences research and a community where scientists use code confidently to advance their fields.",
+      "Workshops in Python, data science and machine learning, and team builds such as proton-therapy Bragg-peak and quantum-tunneling simulations. I set each semester's priorities and goals, run an officer team across programming, partnerships and communications, build research collaborations and sponsorships, and look after the club's GitHub, website and brand.",
     tags: [],
     url: "https://www.nsccatunc.org/",
     host: "nsccatunc.org",
   },
   {
-    id: "unc-sg",
-    org: "UNC Student Government",
-    mark: "Student Gov",
-    role: "Head of Web Development",
-    kind: "org",
-    line: "Rebuilt the Executive Branch website from scratch, off WordPress onto Red Hat OpenShift, and run its DNS, TLS and deployment.",
+    id: "duke",
+    org: "Duke University, Dept. of Anesthesiology",
+    mark: "Duke",
+    role: "Research Assistant",
+    when: "Feb – Jul 2023",
+    kind: "work",
+    line: "Reviewed clinical studies and modeled perioperative sleep outcomes in a meta-analysis with Duke anesthesiologists.",
     detail:
-      "Rebuilt the Executive Branch website from scratch, migrating off WordPress to a custom application on Red Hat OpenShift, and manage the full deployment pipeline including DNS, SSL/TLS and cloud infrastructure.",
-    tags: [],
-    url: "https://executivebranch.unc.edu/",
-    host: "executivebranch.unc.edu",
-  },
-  {
-    id: "urc",
-    org: "Undergraduate Research Conference at UNC",
-    mark: "URC",
-    role: "Director of Technology",
-    kind: "org",
-    line: "Designed the logo, built the website and run the digital presence for a one-day research showcase in the Great Hall.",
-    detail:
-      "Designed the conference logo, built the event website, and manage the conference's full digital presence: the primary platform for applicant outreach, event information and sponsor engagement for a one-day research showcase in the Campus Union's Great Hall.",
-    tags: [],
-    url: "https://uncurc.com/",
-    host: "uncurc.com",
+      "Applied statistical modeling and systematic-review methods across clinical studies of how anesthesia affects sleep around surgery, and learned to synthesize data and communicate findings across disciplines.",
+    tags: ["Meta-Analysis", "Statistical Modeling", "Clinical Research"],
+    caseFile: "/work/duke",
   },
 ];

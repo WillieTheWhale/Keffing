@@ -74,6 +74,8 @@
   transition: flex-basis 760ms var(--ease-reveal);
 }
 .strip[data-open] .face { flex-basis: 34%; cursor: default; }
+/* an entry with only a line to say gives most of the width to its print */
+.strip[data-open][data-brief] .face { flex-basis: max(34%, calc(100% - 340px)); }
 .strip[data-kind="org"] .face { background: #b8babd; }
 .face:focus-visible { outline: 2px solid #3d63b8; outline-offset: 3px; }
 

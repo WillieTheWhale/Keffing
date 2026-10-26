@@ -29,12 +29,12 @@ const sky = (n: number) => SKY_PHOTOS_FULL.find((p) => p.endsWith(`/sky-${n}.jpg
 
 // one fixed print per entry: its photograph, crop, and closed width (px)
 const PRINT: Record<string, { src: string; pos: string; w: number }> = {
-  blockd: { src: sky(8), pos: "40% 30%", w: 96 },
-  eel: { src: sky(17), pos: "8% 50%", w: 64 },
-  duke: { src: sky(4), pos: "55% 50%", w: 84 },
+  "ai-research": { src: sky(8), pos: "40% 30%", w: 96 },
+  caia: { src: sky(15), pos: "38% 50%", w: 64 },
+  "blockchain-berkeley": { src: sky(6), pos: "50% 40%", w: 78 },
+  eel: { src: sky(17), pos: "8% 50%", w: 70 },
   nscc: { src: sky(9), pos: "62% 60%", w: 110 },
-  "unc-sg": { src: sky(15), pos: "38% 50%", w: 58 },
-  urc: { src: sky(6), pos: "50% 40%", w: 78 },
+  duke: { src: sky(4), pos: "55% 50%", w: 84 },
 };
 
 export default function ExperienceSection() {
@@ -109,7 +109,8 @@ function Strip({
   onKey: (ev: KeyboardEvent<HTMLButtonElement>) => void;
   faceRef: (el: HTMLButtonElement | null) => void;
 }) {
-  const p = PRINT[e.id];
+  // an entry without a print of its own yet still gets one
+  const p = PRINT[e.id] ?? { src: sky(1), pos: "50% 50%", w: 72 };
   const panelId = `exp-${e.id}`;
   const router = useRouter();
   return (
@@ -117,6 +118,7 @@ function Strip({
       className={s.strip}
       data-open={open ? "" : undefined}
       data-kind={e.kind}
+      data-brief={!e.detail && e.tags.length === 0 ? "" : undefined}
       style={{ "--w": `${p.w}px`, "--i": index } as React.CSSProperties}
     >
       <button
@@ -149,7 +151,7 @@ function Strip({
         <div className={s.panelIn}>
           {e.org !== e.mark ? <h3 className={s.org}>{e.org}</h3> : <h3 className={s.srOnly}>{e.org}</h3>}
           <p className={s.line}>{e.line}</p>
-          <p className={s.detail}>{e.detail}</p>
+          {e.detail && <p className={s.detail}>{e.detail}</p>}
           {e.tags.length > 0 && <p className={`typed-list ${s.tags}`}>{e.tags.map((t) => t.toLowerCase()).join(" / ")}</p>}
           <p className={s.links}>
             {e.caseFile && (
