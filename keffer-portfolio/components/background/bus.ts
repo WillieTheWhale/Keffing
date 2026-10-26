@@ -14,6 +14,9 @@ export const alloyBus = {
   dive: 0,
   /** True while a Dive is mounted and writing `dive`. */
   diveLive: false,
+  /** The background has drawn its first frame (or has no WebGL to wait for),
+   *  so a loader can uncover the page. */
+  sceneReady: false,
 };
 
 export const END_SKY = withBase("/assets/background/end-sky.jpg");

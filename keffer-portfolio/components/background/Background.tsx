@@ -137,6 +137,7 @@ const Background = memo(function Background({ pageKind, pageSlug = "" }: Backgro
       engine = null; // no WebGL: the print layer alone still composes the page
     }
     canvas.style.display = engine ? "block" : "none";
+    if (!engine) alloyBus.sceneReady = true;
 
     const camFor = (l: PageLayout) => (pageKind ? (s: number) => s * PAGE_PARALLAX[pageKind] : makeCamScroll(l));
     let layout = measure(!!pageKind);
@@ -271,6 +272,7 @@ const Background = memo(function Background({ pageKind, pageSlug = "" }: Backgro
       kick();
       // first light: ease the chrome in instead of popping it over the paper
       if (wrapRef.current) wrapRef.current.style.opacity = "1";
+      alloyBus.sceneReady = true;
     };
     doResize();
 

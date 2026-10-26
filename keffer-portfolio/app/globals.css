@@ -89,42 +89,6 @@ body {
 }
 
 /* ===========================
-   ENTRY SEQUENCE (roadmap W3)
-   =========================== */
-
-.entry-hairline {
-  animation: entry-hairline-draw 900ms var(--ease-reveal) forwards;
-}
-
-@keyframes entry-hairline-draw {
-  from { width: 0; }
-  to { width: 100%; }
-}
-
-.entry-vline {
-  animation: entry-vline-draw 500ms var(--ease-reveal) forwards;
-}
-
-@keyframes entry-vline-draw {
-  from { height: 0; }
-  to { height: 100%; }
-}
-
-.entry-corner {
-  opacity: 0;
-  animation: entry-corner-in 400ms var(--ease-reveal) 250ms forwards;
-}
-
-@keyframes entry-corner-in {
-  from { opacity: 0; transform: scale(1.4); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .entry-hairline, .entry-vline, .entry-corner { animation: none; opacity: 1; width: 100%; }
-}
-
-/* ===========================
    PHOTOGRAPHS
    =========================== */
 

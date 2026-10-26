@@ -1,181 +1,293 @@
 "use client";
 
-import { useEffect, useRef, useState, memo } from "react";
+// The entry sequence: the porcelain cable. On the site's paper, one porcelain tube
+// (the background's own material: white body, ink contour, a soft shadow on
+// the sheet) draws itself in a single gesture, a hairline lead winding round
+// it: in from off-screen, one loop that crosses over itself, and on towards
+// the top right, where its open end rests, breathing, while the page loads.
+// Then the tube pulls through and out, and the paper is cut open along the
+// path it took and parts, uncovering the page beneath. It waits for the
+// background's first frame (alloyBus.sceneReady) so the page it uncovers is
+// ready, plays once per visit, and any input skips it; reduced motion gets
+// the finished tube, still, and one crossfade.
+
+import { useEffect, useRef, useState } from "react";
+import { withBase } from "@/lib/basePath";
 import { useStore } from "@/lib/store";
-
-/**
- * Entry boot sequence — SIGNAL/NOISE roadmap W3.
- * The site boots like a transmission acquiring lock:
- *   acquire (0–900ms)  black frame, timecode spins, hairline draws
- *   lock   (900–1500ms) timecode locks, "SIGNAL ACQUIRED", reticle expands
- *   clear  (1500–2100ms) white beat → overlay dissolves → hero detonates
- * Skippable on any input. Runs once per session. Reduced motion: 400ms fade.
- */
-
-type Stage = "acquire" | "lock" | "clear" | "done";
+import { PAPER } from "@/components/background/paper";
+import { alloyBus } from "@/components/background/bus";
+import { buildCable, drawCable, headAt, traceCentre, type Cable } from "./entryCable";
+import s from "./EntrySequence.module.css";
 
 const SESSION_KEY = "sn-entry-done";
+const GRAIN_SRC = withBase("/assets/background/paper-grain.png");
+const GRAIN = `url(${GRAIN_SRC})`;
+const DRAW = 1500; // the pen, from off-screen through the loop to the hold
+const MIN = 1900; // the page is never uncovered before this
+const EXIT = 1250; // the tail pulls through and out; the paper parts
+const SKIP_EXIT = 520;
+const DRIFT = 0.022; // how far the open end creeps on while the page loads
+const LAG = 0.045; // how far the lead trails the pen while drawing (0..1 of length)
 
-function fmtTimecode(d: Date, frame: number): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}:${p(frame)}`;
+const easeOut = (k: number) => 1 - Math.pow(1 - k, 2.3);
+const easeIn = (k: number) => k * k * k;
+const easeInOut = (k: number) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
+const clamp01 = (k: number) => Math.min(1, Math.max(0, k));
+
+/** Resolves once the background has drawn its first frame (or has no WebGL),
+ *  or after `max` ms, whichever comes first. */
+function sceneReady(max: number): Promise<void> {
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    const poll = () => {
+      if (alloyBus.sceneReady || performance.now() - t0 > max) resolve();
+      else setTimeout(poll, 50);
+    };
+    poll();
+  });
 }
 
-const EntrySequence = memo(function EntrySequence() {
-  const [stage, setStage] = useState<Stage | null>(null);
-  const stageRef = useRef<Stage | null>(null);
-  const timecodeRef = useRef<HTMLSpanElement>(null);
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+/** The hero assembles from here on (the name, the tagline). */
+const revealPage = () => useStore.setState({ entryDone: true });
+
+const markSeen = () => {
+  try { sessionStorage.setItem(SESSION_KEY, "1"); } catch {}
+};
+
+const seen = () => {
+  try { return !!sessionStorage.getItem(SESSION_KEY); } catch { return false; }
+};
+
+const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** Calls `skip` on the first pointer, key, wheel or touch input; returns the cleanup. */
+function onFirstInput(skip: () => void) {
+  const evs = ["pointerdown", "keydown", "wheel", "touchstart"] as const;
+  const fire = () => { off(); skip(); };
+  const off = () => evs.forEach((e) => window.removeEventListener(e, fire));
+  evs.forEach((e) => window.addEventListener(e, fire, { passive: true }));
+  return off;
+}
+
+export default function EntrySequence() {
+  const [done, setDone] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const paperRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    stageRef.current = stage;
-  }, [stage]);
-
-  // Entire sequence is scheduled ONCE at mount — internal stage flips must
-  // never clear the pending timers (that bug locked the overlay on screen).
-  useEffect(() => {
-    const seen = sessionStorage.getItem(SESSION_KEY);
-    if (seen) {
-      useStore.setState({ entryDone: true });
-      setStage("done");
-      return;
+    // once per visit: later loads go straight to the page
+    if (seen()) {
+      revealPage();
+      const t = setTimeout(() => setDone(true), 0);
+      return () => clearTimeout(t);
     }
-    setStage("acquire");
+    const root = rootRef.current;
+    const canvas = canvasRef.current;
+    const paperCv = paperRef.current;
+    const ctx = canvas?.getContext("2d");
+    const pctx = paperCv?.getContext("2d");
+    if (!root || !canvas || !ctx || !paperCv || !pctx) {
+      // no canvas: nothing to draw, so the page is simply handed over
+      const t = setTimeout(() => { revealPage(); markSeen(); setDone(true); }, 0);
+      return () => clearTimeout(t);
+    }
+    const calm = prefersReducedMotion() || useStore.getState().reducedMotion;
 
-    const finish = () => {
-      sessionStorage.setItem(SESSION_KEY, "1");
-      useStore.setState({ entryDone: true });
-      setStage("done");
+    // the sheet, drawn once per size into a buffer the exit cuts copies of
+    const sheet = document.createElement("canvas");
+    const sctx = sheet.getContext("2d");
+    let grain: HTMLImageElement | null = null;
+    const paintSheet = () => {
+      if (!sctx) return;
+      sheet.width = paperCv.width;
+      sheet.height = paperCv.height;
+      sctx.fillStyle = PAPER;
+      sctx.fillRect(0, 0, sheet.width, sheet.height);
+      if (grain) {
+        const pat = sctx.createPattern(grain, "repeat");
+        if (pat) {
+          pat.setTransform(new DOMMatrix().scale(dpr * (256 / grain.width)));
+          sctx.globalCompositeOperation = "multiply";
+          sctx.globalAlpha = 0.6;
+          sctx.fillStyle = pat;
+          sctx.fillRect(0, 0, sheet.width, sheet.height);
+          sctx.globalCompositeOperation = "source-over";
+          sctx.globalAlpha = 1;
+        }
+      }
+      pctx.clearRect(0, 0, paperCv.width, paperCv.height);
+      pctx.drawImage(sheet, 0, 0);
     };
 
-    const t = (ms: number, fn: () => void) => {
-      const id = setTimeout(fn, ms);
-      timersRef.current.push(id);
-      return id;
+    let dpr = 1;
+    let W = 0, H = 0;
+    const layout = (): Cable => {
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      W = window.innerWidth;
+      H = window.innerHeight;
+      for (const cv of [canvas, paperCv]) {
+        cv.width = Math.round(W * dpr);
+        cv.height = Math.round(H * dpr);
+      }
+      paintSheet();
+      return buildCable(W, H);
     };
+    let cable = layout();
+    let sway = new Float32Array(cable.n);
 
-    const prefersReduced =
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // the server-drawn paper stays until the canvas sheet carries the grain too
+    const img = new Image();
+    img.src = GRAIN_SRC;
+    const takeGrain = () => { grain = img; paintSheet(); root.dataset.sheet = ""; };
+    img.decode().then(takeGrain, () => { root.dataset.sheet = ""; });
 
-    if (prefersReduced) {
-      t(400, finish);
-      return () => timersRef.current.forEach(clearTimeout);
-    }
+    let alive = true;
+    let raf = 0;
+    let head = 0, tail = 0, lead1 = 0, swayAmp = 0;
+    let exitAt = -1, exitDur = EXIT;
+    let from = { head: 0, tail: 0, lead1: 0, swayAmp: 0 };
+    let ready = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
 
-    t(900, () => setStage("lock"));
-    t(1500, () => setStage("clear"));
-    t(2100, finish);
-
-    // Skip on any input
-    const skip = () => {
-      if (stageRef.current === "acquire" || stageRef.current === "lock") {
-        timersRef.current.forEach(clearTimeout);
-        timersRef.current = [];
-        setStage("clear");
-        timersRef.current.push(setTimeout(finish, 450));
+    // a ripple travelling along the tube, gentle, strongest mid-length
+    const ripple = (time: number, amp: number) => {
+      const lambda = Math.max(260, Math.min(W, H) * 0.7);
+      for (let i = 0; i < cable.n; i++) {
+        const u = i / (cable.n - 1);
+        const env = Math.sin(Math.PI * clamp01((u - 0.05) / 0.9));
+        sway[i] = amp * env * Math.sin((cable.s[i] / lambda - time / 2600) * Math.PI * 2);
       }
     };
-    window.addEventListener("pointerdown", skip);
-    window.addEventListener("keydown", skip);
-    window.addEventListener("wheel", skip, { passive: true });
-    window.addEventListener("touchstart", skip, { passive: true });
+
+    const paint = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawCable(ctx, cable, tail, head, dpr, true, swayAmp > 0.01 ? sway : null, Math.max(tail, cable.leadFrom), lead1);
+    };
+    const finish = () => {
+      if (!alive) return;
+      alive = false;
+      markSeen();
+      setDone(true);
+    };
+    const uncover = () => {
+      root.dataset.exit = "";
+      delete root.dataset.live;
+      revealPage();
+    };
+
+    const onResize = () => {
+      cable = layout();
+      sway = new Float32Array(cable.n);
+      paint();
+    };
+    window.addEventListener("resize", onResize);
+
+    // reduced motion: the finished tube, still, then a calm crossfade
+    if (calm) {
+      root.dataset.calm = "";
+      head = cable.uHold;
+      lead1 = head - LAG * 0.5;
+      paint();
+      const go = () => {
+        if (root.dataset.exit !== undefined) return;
+        uncover();
+        timers.push(setTimeout(finish, 450));
+      };
+      const t0 = performance.now();
+      sceneReady(3600).then(() => timers.push(setTimeout(go, Math.max(0, 300 - (performance.now() - t0)))));
+      const off = onFirstInput(go);
+      return () => {
+        alive = false;
+        off();
+        timers.forEach(clearTimeout);
+        window.removeEventListener("resize", onResize);
+      };
+    }
+
+    const t0 = performance.now();
+    sceneReady(3600).then(() => { ready = true; });
+
+    const startExit = (dur: number) => {
+      if (exitAt >= 0) return;
+      exitAt = performance.now();
+      exitDur = dur;
+      from = { head, tail, lead1, swayAmp };
+      uncover();
+    };
+
+    // the paper, cut open along the path the tube took, the cut widening
+    const cutPaper = (k: number) => {
+      const diag = Math.hypot(W, H);
+      const wide = (cable.hw.reduce((m, v) => Math.max(m, v), 0) * 2.2) + easeIn(clamp01((k - 0.06) / 0.8)) * diag * 1.3;
+      pctx.globalCompositeOperation = "source-over";
+      pctx.clearRect(0, 0, paperCv.width, paperCv.height);
+      pctx.drawImage(sheet, 0, 0);
+      pctx.globalCompositeOperation = "destination-out";
+      pctx.lineCap = "round";
+      pctx.lineJoin = "round";
+      pctx.lineWidth = wide * dpr;
+      traceCentre(pctx, cable, 0, Math.max(from.head, head), dpr, null);
+      pctx.stroke();
+      pctx.globalCompositeOperation = "source-over";
+    };
+
+    const frame = (now: number) => {
+      raf = 0;
+      if (!alive) return;
+      const el = now - t0;
+      if (exitAt < 0) {
+        if (el < DRAW) {
+          head = headAt(cable, easeOut(el / DRAW));
+          lead1 = Math.max(0, head - LAG * (1 - 0.5 * clamp01(el / DRAW)));
+        } else {
+          head = Math.min(1, cable.uHold + DRIFT * (1 - Math.exp(-(el - DRAW) / 1400)));
+          lead1 = head - LAG * 0.5;
+          // the tube settles into a slow breath while the page loads
+          swayAmp = 2.6 * clamp01((el - DRAW) / 700);
+        }
+        if (ready && el >= MIN) startExit(EXIT);
+      }
+      if (exitAt >= 0) {
+        const k = Math.min(1, (now - exitAt) / exitDur);
+        // the head runs on out of frame; the tail follows, slow, then all at once
+        head = from.head + (1 - from.head) * easeInOut(Math.min(1, k * 1.5));
+        tail = from.tail + (1 - from.tail) * Math.pow(k, 2.1);
+        lead1 = Math.min(head, from.lead1 + (1 - from.lead1) * easeInOut(Math.min(1, k * 1.35)));
+        swayAmp = from.swayAmp * (1 - clamp01(k / 0.45));
+        cutPaper(k);
+        if (k >= 1) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          finish();
+          return;
+        }
+      }
+      if (swayAmp > 0.01) ripple(now - t0, swayAmp);
+      paint();
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+
+    const off = onFirstInput(() => startExit(SKIP_EXIT));
 
     return () => {
-      timersRef.current.forEach(clearTimeout);
-      window.removeEventListener("pointerdown", skip);
-      window.removeEventListener("keydown", skip);
-      window.removeEventListener("wheel", skip);
-      window.removeEventListener("touchstart", skip);
+      alive = false;
+      off();
+      if (raf) cancelAnimationFrame(raf);
+      timers.forEach(clearTimeout);
+      window.removeEventListener("resize", onResize);
     };
   }, []);
 
-  // Spinning → locking timecode (direct DOM mutation, no re-renders)
-  useEffect(() => {
-    if (stage !== "acquire" && stage !== "lock") return;
-    let raf = 0;
-    const tick = () => {
-      const el = timecodeRef.current;
-      if (el) {
-        if (stageRef.current === "acquire") {
-          // spin: random plausible timecode
-          const d = new Date(Math.random() * 8.64e7);
-          el.textContent = fmtTimecode(d, Math.floor(Math.random() * 30));
-        } else {
-          el.textContent = fmtTimecode(new Date(), Math.floor((performance.now() / 33.3) % 30));
-        }
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [stage]);
-
-  if (stage === null || stage === "done") return null;
-
-  const isClear = stage === "clear";
-  const isLock = stage === "lock" || isClear;
-
+  if (done) return null;
   return (
-    <div
-      className="entry-sequence fixed inset-0 flex items-center justify-center"
-      style={{
-        zIndex: 50,
-        backgroundColor: isClear ? "#FFFFFF" : "#000000",
-        opacity: isClear ? 0 : 1,
-        transition: isClear
-          ? "opacity 450ms var(--ease-tune), background-color 140ms linear"
-          : "none",
-        pointerEvents: isClear ? "none" : "auto",
-        cursor: "pointer",
-      }}
-      aria-hidden="true"
-    >
-      {/* Drawing hairline */}
-      <div
-        className="entry-hairline absolute left-0 top-1/2"
-        style={{
-          height: "1px",
-          backgroundColor: isLock ? "rgba(0,153,255,0.9)" : "rgba(255,255,255,0.7)",
-        }}
-      />
-      {/* Vertical reticle line appears at lock */}
-      {isLock && (
-        <div
-          className="entry-vline absolute top-0 left-1/2"
-          style={{ width: "1px", backgroundColor: "rgba(0,153,255,0.5)" }}
-        />
-      )}
-      {/* Double rule with a stepped junction — the reference's drafting mark */}
-      <div className="entry-corner" style={{ position: "absolute", left: 28, bottom: 32, width: 180, height: 4, borderTop: "1px solid rgba(255,255,255,0.45)", borderBottom: "1px solid rgba(255,255,255,0.45)" }} />
-      <div className="entry-corner" style={{ position: "absolute", left: 28, bottom: 32, width: 0, height: 46, borderLeft: "1px solid rgba(255,255,255,0.45)" }} />
-      <div className="entry-corner" style={{ position: "absolute", right: 28, top: 32, width: 180, height: 4, borderTop: "1px solid rgba(255,255,255,0.45)", borderBottom: "1px solid rgba(255,255,255,0.45)" }} />
-      <div className="entry-corner" style={{ position: "absolute", right: 28, top: 32, width: 0, height: 46, borderLeft: "1px solid rgba(255,255,255,0.45)" }} />
-      {/* Timecode + status */}
-      <div className="flex flex-col items-center gap-3" style={{ transform: "translateY(-8px)" }}>
-        <span
-          ref={timecodeRef}
-          className="font-mono"
-          style={{
-            fontSize: "13px",
-            letterSpacing: "0.25em",
-            color: isLock ? "#0099FF" : "rgba(255,255,255,0.85)",
-          }}
-        >
-          00:00:00:00
-        </span>
-        <span
-          className="font-mono uppercase"
-          style={{
-            fontSize: "10px",
-            letterSpacing: "0.35em",
-            color: "rgba(255,255,255,0.45)",
-          }}
-        >
-          {isLock ? "signal acquired" : "acquiring signal"}
-        </span>
+    <div ref={rootRef} className={s.root} data-live="" aria-hidden="true">
+      {/* the first frame, from the server: paper and grain */}
+      <div className={s.paper} style={{ background: PAPER }}>
+        <span className={s.grain} style={{ backgroundImage: GRAIN }} />
       </div>
+      <canvas ref={paperRef} className={s.sheet} />
+      <canvas ref={canvasRef} className={s.canvas} />
     </div>
   );
-});
-
-export default EntrySequence;
+}

@@ -1,0 +1,43 @@
+/* The entry sequence (EntrySequence.tsx): the site's paper, and the porcelain
+   cable drawn over it on a canvas. The server draws the first frame's paper;
+   a canvas copy of the sheet takes over (it is the one the exit cuts open),
+   and the tube lies on top with a soft shadow on the sheet. */
+
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+}
+.root[data-live] { pointer-events: auto; }
+
+.paper {
+  position: absolute;
+  inset: 0;
+}
+.root[data-sheet] .paper { visibility: hidden; }
+.grain {
+  position: absolute;
+  inset: 0;
+  background-size: 256px 256px;
+  mix-blend-mode: multiply;
+  opacity: 0.6;
+}
+
+.sheet,
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* the parting sheet's cut edges throw a little shadow onto the page */
+.root[data-exit] .sheet { filter: drop-shadow(0 4px 10px rgba(20, 24, 40, 0.16)); }
+/* the porcelain lifts off the paper, as the background's tubes do */
+.canvas { filter: drop-shadow(4px 7px 7px rgba(20, 24, 40, 0.14)); }
+
+/* reduced motion: the finished tube, still, then one crossfade */
+.root[data-calm] { transition: opacity 400ms linear; }
+.root[data-calm][data-exit] { opacity: 0; }
+.root[data-calm] .sheet { filter: none; }
