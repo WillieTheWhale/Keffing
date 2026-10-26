@@ -126,10 +126,14 @@ export default function Dive() {
   const linksRef = useRef<HTMLSpanElement>(null);
   const copyRef = useRef<HTMLSpanElement>(null);
 
-  // the message sheet: open, it holds the card fully on screen (like focus does)
+  // the message sheet: open, it holds the card fully on screen (like focus
+  // does) until the reader heads back up the page
   const [open, setOpen] = useState(false);
   const openRef = useRef(false);
   const kickRef = useRef<() => void>(() => {});
+  // false when the sheet folded away because the reader scrolled off: focus
+  // then stays where it is instead of jumping back to the button
+  const refocusRef = useRef(true);
   const openSheet = () => { openRef.current = true; setOpen(true); kickRef.current(); };
   const closeSheet = useCallback(() => {
     openRef.current = false;
@@ -139,7 +143,8 @@ export default function Dive() {
   // closed again: focus goes back to the button it came from (once it is no longer inert)
   const wasOpen = useRef(false);
   useEffect(() => {
-    if (wasOpen.current && !open) ctaRef.current?.focus({ preventScroll: true });
+    if (wasOpen.current && !open && refocusRef.current) ctaRef.current?.focus({ preventScroll: true });
+    refocusRef.current = true;
     wasOpen.current = open;
   }, [open]);
   const [copied, setCopied] = useState(false);
@@ -401,13 +406,49 @@ export default function Dive() {
       if (!raf) { last = performance.now(); raf = requestAnimationFrame(tick); }
     };
     kickRef.current = kick;
-    const onScroll = () => kick();
+    // Focus in the card, or the open sheet, holds the timeline at the end card.
+    // The hold lets go once the reader heads back up: an upward wheel, swipe or
+    // key outside the sheet's fields, or a viewport of upward scroll by any
+    // other means. The timeline then rewinds with the scroll as usual, and an
+    // open sheet folds away (it keeps its draft).
+    const held = () => forced || openRef.current;
+    let holdDeepest = -1; // deepest scroll position since the hold began
+    const release = () => {
+      if (!held()) return;
+      forced = false;
+      holdDeepest = -1;
+      const a = document.activeElement;
+      if (a instanceof HTMLElement && section.contains(a)) a.blur();
+      if (openRef.current) { refocusRef.current = false; openRef.current = false; setOpen(false); }
+      kick();
+    };
+    const inField = (t: EventTarget | null) => t instanceof Element && !!t.closest("input, textarea, [data-lenis-prevent]");
+    const onWheel = (e: WheelEvent) => { if (e.deltaY < 0 && held() && !inField(e.target)) release(); };
+    let touchY = -1;
+    const onTouchStart = (e: TouchEvent) => { touchY = inField(e.target) ? -1 : e.touches[0].clientY; };
+    const onTouchMove = (e: TouchEvent) => { if (touchY >= 0 && e.touches[0].clientY - touchY > 24 && held()) release(); };
+    const onKey = (e: KeyboardEvent) => {
+      const up = e.key === "PageUp" || e.key === "ArrowUp" || e.key === "Home" || (e.key === " " && e.shiftKey);
+      if (up && held() && !inField(e.target)) release();
+    };
+    const onScroll = () => {
+      if (held()) {
+        const y = window.scrollY;
+        if (y > holdDeepest) holdDeepest = y;
+        else if (holdDeepest - y > window.innerHeight) release();
+      } else holdDeepest = -1;
+      kick();
+    };
     const onFocus = () => { forced = true; kick(); };
     const onBlur = (e: FocusEvent) => {
       if (!section.contains(e.relatedTarget as Node | null)) { forced = false; kick(); }
     };
     const onVis = () => { if (!document.hidden) kick(); };
     window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("wheel", onWheel, { passive: true });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("keydown", onKey);
     const onResize = () => { measureCaret(); kick(); };
     window.addEventListener("resize", onResize, { passive: true });
     document.addEventListener("visibilitychange", onVis);
@@ -422,6 +463,10 @@ export default function Dive() {
     kick();
     return () => {
       window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("keydown", onKey);
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVis);
       section.removeEventListener("focusin", onFocus);
