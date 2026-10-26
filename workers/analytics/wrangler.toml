@@ -49,9 +49,10 @@ namespace_id = "7003"
 simple = { limit = 3, period = 60 }
 
 # Mondays 13:00 UTC (9 am Eastern in summer, 8 am in winter): the digest,
-# then a sweep of spent sign-in links and old salts
+# then a sweep of spent sign-in links and old salts. Named, not numbered:
+# Cloudflare counts weekdays from 1 = Sunday.
 [triggers]
-crons = ["0 13 * * 1"]
+crons = ["0 13 * * MON"]
 
 [observability]
 enabled = true
