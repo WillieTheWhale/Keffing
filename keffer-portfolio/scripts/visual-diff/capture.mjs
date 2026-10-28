@@ -1,7 +1,10 @@
 // Deterministic captures of one build (served by serve.mjs, ?freeze) at fixed
 // scroll positions across the home page, the finale and the inner pages.
 // usage: node scripts/visual-diff/capture.mjs <origin> <outDir> [views] [pages] [positions]
-//   views: desk,phone,tab,rm (comma lists; all when omitted)
+//   views: desk,phone,tab,rm,touch (comma lists; all when omitted). `touch` is
+//         the phone without Chrome's mobile layout viewport, which widens to
+//         any overflowing content and then reports a taller innerHeight than
+//         CSS vh: use it to compare builds whose scroll math differs in that.
 //   SW=1  render with SwiftShader — bit-exact run to run, unlike the GPU,
 //         whose output jitters by a few dozen pixels per frame on this Mac
 //   STEP=50 DPR=1  fewer, larger clock steps and 1x pixels (software is slow)
@@ -22,6 +25,7 @@ const VIEWS = {
   phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
   tab: { viewport: { width: 1024, height: 768 }, deviceScaleFactor: 2 },
   rm: { viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 2, reducedMotion: "reduce" },
+  touch: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, hasTouch: true },
 };
 // positions: [label, js expression for scrollY, frames to advance]
 const sec = (id, f) => `(document.getElementById('${id}').offsetTop + ${f}*innerHeight)`;
@@ -39,6 +43,7 @@ const PLAN = {
   phone: [["home", "/", HOME.filter((_, i) => i % 2 === 0)], ["bragg", "/work/bragg-peak", PAGE], ["hardware", "/stuff/hardware", PAGE.slice(0, 1)], ["resume", "/resume", PAGE.slice(0, 1)]],
   tab: [["home", "/", HOME.filter((_, i) => i % 3 === 0)], ["bragg", "/work/bragg-peak", PAGE.slice(0, 1)]],
   rm: [["home", "/", HOME.filter((_, i) => [0, 2, 9, 11, 16, 22].includes(i))], ["bragg", "/work/bragg-peak", PAGE.slice(0, 1)]],
+  touch: [["home", "/", HOME.filter((_, i) => i % 2 === 0)], ["bragg", "/work/bragg-peak", PAGE], ["hardware", "/stuff/hardware", PAGE.slice(0, 1)], ["resume", "/resume", PAGE.slice(0, 1)]],
 };
 const browser = await chromium.launch({ executablePath: CHROME, args: [...(process.env.SW ? ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] : ["--use-angle=metal"]), "--ignore-gpu-blocklist", "--disable-background-timer-throttling", "--disable-renderer-backgrounding", "--hide-scrollbars"] });
 const report = {};
@@ -71,7 +76,8 @@ for (const [view, pages] of Object.entries(PLAN)) {
       }
       await page.waitForTimeout(900); // CSS transitions (real time)
       // real-time CSS / WAAPI animations: finite ones to their end, looping ones to a fixed phase
-      await page.evaluate(() => { for (const a of document.getAnimations()) { const it = a.effect?.getComputedTiming?.().iterations; if (it === Infinity) { a.pause(); a.currentTime = 1000; } else { try { a.finish(); } catch {} } } });
+      // (scroll-driven ones already sit where the scroll puts them)
+      await page.evaluate(() => { for (const a of document.getAnimations()) { if (a.timeline !== document.timeline) continue; const it = a.effect?.getComputedTiming?.().iterations; if (it === Infinity) { a.pause(); a.currentTime = 1000; } else { try { a.finish(); } catch {} } } });
       await page.evaluate(() => window.__clock.set(Math.ceil(window.__clock.now() / 1000) * 1000 + 234));
       await page.evaluate(() => new Promise((r) => { let n = 0; const f = () => (++n < 6 ? requestAnimationFrame(f) : r()); requestAnimationFrame(f); }));
       await page.screenshot({ path: `${out}/${view}-${name}-${String(k).padStart(2, "0")}-${label}.png` });

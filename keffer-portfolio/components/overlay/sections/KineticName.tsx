@@ -3,13 +3,16 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useStore } from "@/lib/store";
 import { mulberry32 } from "@/lib/generative";
+import { compositorScroll, cssNum, FADED, scrollKeyframes, scrollTag, styleSheet, viewportHeight } from "@/lib/scrollTimeline";
 
 /**
  * Kinetic deconstructed hero lockup — SIGNAL/NOISE roadmap W5.
  * Each letter begins scattered among the collage layers (its own offset,
  * rotation, depth-blur) and locks into place once the entry sequence clears.
  * On scroll the lockup shears apart again — scrubbable, driven directly by
- * scroll position via one listener and direct DOM writes (no re-renders).
+ * scroll position via one listener and direct DOM writes (no re-renders); on
+ * touch devices by the same curves as scroll-driven keyframes, so the shear
+ * runs with the finger on the compositor (lib/scrollTimeline.ts).
  *
  * Two nested spans per letter so the two motions never fight:
  *   outer = entry assembly (CSS transition, staggered)
@@ -65,12 +68,35 @@ export default function KineticName() {
     if (!wrap) return;
     const inners = Array.from(wrap.querySelectorAll<HTMLElement>("[data-shear]"));
     const vec = inners.map((el) => [parseFloat(el.dataset.sx || "0"), parseFloat(el.dataset.sy || "0"), parseFloat(el.dataset.sr || "0")]);
+
+    if (compositorScroll()) {
+      // shear e = (scroll / 0.8vh)², opacity 1 − 1.15·e: the curves below, exactly
+      const vh = viewportHeight(), end = 0.8, range = end * vh;
+      const ease = (s: number) => (Math.min(s, end) / end) ** 2;
+      const tag = scrollTag("shear");
+      const timeline = `animation-timeline:scroll(root block),scroll(root block);animation-range:0px ${range}px`;
+      let css = scrollKeyframes(`${tag}o`, { breaks: [end / Math.sqrt(1.15)], f: (s) => Math.max(0, 1 - ease(s) * 1.15), css: (v) => `opacity:${cssNum(Math.max(FADED, v))}` }, vh, range);
+      inners.forEach((el, i) => {
+        const [sx, sy, sr] = vec[i];
+        const name = `${tag}-${i}`;
+        css += scrollKeyframes(name, { breaks: [], f: ease, css: (e) => `transform:translate(${cssNum(sx * e)}px,${cssNum(sy * e)}px) rotate(${cssNum(sr * e)}deg)` }, vh, range);
+        css += `[data-shear="${name}"]{animation:${name} linear both,${tag}o linear both;${timeline}}`;
+        el.dataset.shear = name;
+      });
+      const sheet = styleSheet();
+      sheet.set(css);
+      return () => {
+        sheet.remove();
+        inners.forEach((el) => { el.dataset.shear = ""; });
+      };
+    }
+
     let ticking = false;
     let last = -1;
 
     const update = () => {
       ticking = false;
-      const shear = Math.min(1, Math.max(0, window.scrollY / (window.innerHeight * 0.8)));
+      const shear = Math.min(1, Math.max(0, window.scrollY / (viewportHeight() * 0.8)));
       const eased = shear * shear;
       // past the hero the shear is pinned at 1: nothing to rewrite
       if (eased === last) return;

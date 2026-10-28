@@ -11,7 +11,9 @@
 // in r01 / e06. Every element is hand-placed: x/w in vw, y/h in vh at its
 // section's home scroll position, moving at `pf` × the camera scroll (the
 // same decelerating camera curve the GL layer uses, so the two never drift
-// apart). Transforms only; nothing is written to :root.
+// apart). Transforms only; nothing is written to :root. On touch devices that
+// motion runs on the compositor as scroll-driven keyframes of the same curves
+// (lib/scrollTimeline.ts), so it keeps pace with a finger scroll.
 
 import { forwardRef, memo, useEffect, useImperativeHandle, useMemo, useRef, type CSSProperties, type ReactNode } from "react";
 import { homeScroll, type PageLayout } from "./engine";
@@ -21,6 +23,7 @@ import { formulas, type FormulaId } from "@/content/formulas";
 import { ASCII_SKY } from "./asciiSky";
 import { withBase } from "@/lib/basePath";
 import { PAPER } from "./paper";
+import { cssNum, FADED, scrollKeyframes, scrollTag, styleSheet, viewportHeight } from "@/lib/scrollTimeline";
 
 const BLUE = "#7d9fdb";
 const BLUE_2 = "#8eacdf";
@@ -351,7 +354,9 @@ const sm = (x: number) => { const t = Math.min(1, Math.max(0, x)); return t * t 
 export interface KeepOut { x: number; y: number; w: number; h: number }
 
 export interface PrintHandle {
-  setLayout: (layout: PageLayout, camScroll: (s: number) => number, keepOut?: KeepOut[]) => void;
+  /** With `scroll`, the items move on the compositor (scroll-driven keyframes
+   *  of `camScroll`, which bends at `scroll.bends`) and update() leaves them be. */
+  setLayout: (layout: PageLayout, camScroll: (s: number) => number, keepOut?: KeepOut[], scroll?: { bends: number[] } | null) => void;
   update: (scrollVH: number, dive: number, diveAt: [number, number]) => void;
 }
 
@@ -386,12 +391,17 @@ const PrintLayersImpl = forwardRef<PrintHandle, { vclass: ViewClass; items?: Ite
     geo: (Geo | null)[];
     /** last values written to the DOM (skip unchanged writes) */
     tf: string[]; layer: [string, string, string];
+    /** the items run on the compositor (setLayout's `scroll`) */
+    cmp: boolean;
   }>({
     home: new Float64Array(ITEMS.length), homeS: new Float64Array(ITEMS.length), camScroll: (s) => s,
     hidden: new Uint8Array(ITEMS.length), op: new Float32Array(ITEMS.length).fill(-1), vc: vclass,
     blocked: new Uint8Array(ITEMS.length), geo: ITEMS.map((it) => geo(it, vclass)),
-    tf: ITEMS.map(() => ""), layer: ["", "", ""],
+    tf: ITEMS.map(() => ""), layer: ["", "", ""], cmp: false,
   });
+  // the compositor path's keyframes (made on first use)
+  const sheet = useRef<ReturnType<typeof styleSheet> | null>(null);
+  useEffect(() => () => { sheet.current?.remove(); sheet.current = null; }, []);
   useEffect(() => {
     const st = state.current;
     st.vc = vclass;
@@ -402,10 +412,10 @@ const PrintLayersImpl = forwardRef<PrintHandle, { vclass: ViewClass; items?: Ite
   }, [vclass, ITEMS]);
 
   useImperativeHandle(ref, () => ({
-    setLayout(layout, camScroll, keepOut = []) {
+    setLayout(layout, camScroll, keepOut = [], scroll = null) {
       const st = state.current;
       st.camScroll = camScroll;
-      const vw = window.innerWidth, vh = window.innerHeight, M = 14;
+      const vw = window.innerWidth, vh = viewportHeight(), M = 14;
       ITEMS.forEach((it, i) => {
         st.homeS[i] = homeScroll(layout, it.sec, it.t);
         st.home[i] = camScroll(st.homeS[i]);
@@ -425,12 +435,49 @@ const PrintLayersImpl = forwardRef<PrintHandle, { vclass: ViewClass; items?: Ite
       st.hidden.fill(0);
       st.op.fill(-1);
       st.tf.fill("");
+      st.cmp = !!scroll;
+      if (!scroll) {
+        if (sheet.current) {
+          sheet.current.set("");
+          els.current.forEach((el) => el?.removeAttribute("data-pl"));
+        }
+        return;
+      }
+      // Each item: its parallax (the camera curve × pf) and its fade window,
+      // as exact keyframes over a fixed pixel range of the root scroller.
+      const range = Math.ceil((layout.maxScrollVH + 1.5) * vh);
+      const tag = scrollTag("pl");
+      const timeline = `animation-timeline:scroll(root block),scroll(root block);animation-range:0px ${range}px`;
+      let css = "";
+      ITEMS.forEach((it, i) => {
+        const el = els.current[i];
+        if (!el || !st.geo[i]) return;
+        el.style.transform = "";
+        el.style.opacity = "";
+        if (st.blocked[i] === 1) {
+          el.style.visibility = "hidden";
+          el.removeAttribute("data-pl");
+          return;
+        }
+        el.style.visibility = "";
+        const home = st.home[i], pf = it.pf;
+        const a0 = st.homeS[i] + wins[i][0], a1 = st.homeS[i] + wins[i][1];
+        const fades = [a0, a0 + FADE, a1, a1 + FADE];
+        // overlapping windows: min() switches mid-piece, so sample it there
+        for (let k = 1; a1 < a0 + FADE && k < 16; k++) fades.push(a1 + ((a0 + FADE - a1) * k) / 16);
+        const name = `${tag}-${i}`;
+        css += scrollKeyframes(`${name}t`, { breaks: scroll.bends, f: (s) => -(camScroll(s) - home) * pf * vh, css: (v) => `transform:translate3d(0,${cssNum(v)}px,0)` }, vh, range);
+        css += scrollKeyframes(`${name}o`, { breaks: fades, f: (s) => Math.min(sm((s - a0) / FADE), 1 - sm((s - a1) / FADE)), css: (v) => `opacity:${cssNum(Math.max(FADED, v))}` }, vh, range);
+        css += `[data-pl="${name}"]{animation:${name}t linear both,${name}o linear both;${timeline}}`;
+        el.dataset.pl = name;
+      });
+      (sheet.current ??= styleSheet()).set(css);
     },
     update(s, dive, diveAt) {
       const st = state.current;
       const g = st.camScroll(s);
-      const vh = window.innerHeight;
-      for (let i = 0; i < ITEMS.length; i++) {
+      const vh = viewportHeight();
+      for (let i = 0; i < ITEMS.length && !st.cmp; i++) {
         const el = els.current[i];
         if (!el) continue;
         const it = ITEMS[i];

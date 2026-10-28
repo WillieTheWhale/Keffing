@@ -71,7 +71,8 @@ export default function SeededPageShell({
       <Background pageKind={kind} pageSlug={seedKey} />
       <Veil />
 
-      <main className="relative" style={{ zIndex: 20 }}>
+      {/* overflow-x clip: a long title must not widen the page on a phone (see .content-layer) */}
+      <main className="relative" style={{ zIndex: 20, overflowX: "clip" }}>
         {/* Top bar */}
         <div className="flex items-center justify-between px-6 md:px-12 pt-8">
           <button type="button" onClick={back} className="typed-link">

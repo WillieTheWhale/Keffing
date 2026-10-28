@@ -14,20 +14,36 @@
 // loop continuously with bloom (paused when hidden). Tablet/mobile run the
 // lite path (lower tessellation, no bloom) with a slow living rotation at
 // ~30 fps; reduced motion renders a still, on demand only.
+//
+// Touch devices scroll on the compositor, ahead of (and on ProMotion phones
+// twice as often as) the main thread. There the print layout moves as
+// scroll-driven keyframes (layout2d.tsx), and the canvas is carried between
+// its frames: it renders a margin above and below the viewport, and the
+// compositor slides it at the 3D groups' own screen speed (CARRY) by however
+// far the scroll has moved since the frame was drawn, which each new frame
+// takes back. Scroll positions there are in the large viewport height
+// (lib/scrollTimeline.ts), which the browser's toolbars don't change.
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { scrollVelocityRef } from "@/lib/scroll";
-import { AlloyEngine, makeCamScroll, type Mask, type PageLayout, type PageScene } from "./engine";
+import { AlloyEngine, camBends, makeCamScroll, type Mask, type PageLayout, type PageScene } from "./engine";
 import { alloyBus } from "./bus";
 import { PAGE_PARALLAX, type PageFrame, type PageKind, type SectionId } from "./pieces";
 import { hashSlug } from "@/lib/generative";
 import { PrintLayers, pageItems, type KeepOut, type PrintHandle, type ViewClass } from "./layout2d";
+import { compositorScroll, cssNum, scrollKeyframes, scrollTag, styleSheet, viewportHeight } from "@/lib/scrollTimeline";
 
 const SECTION_IDS: SectionId[] = ["hero", "about", "work", "stuff", "experience", "contact", "dive"];
 
+/** Screen speed of the 3D groups per unit of camera scroll: 6 / depth, and
+ *  they sit at depth 10–12 (pieces.ts). The compositor carries the canvas at this. */
+const CARRY = 6 / 11;
+/** Canvas overscan for that carry, css px (rounded to whole drawing-buffer pixels). */
+const PAD = 48;
+
 function measure(page: boolean): PageLayout {
-  const vh = Math.max(1, window.innerHeight);
+  const vh = viewportHeight();
   if (page) {
     // inner pages: "hero" is the top of the page, "contact" its last screen
     // (page groups and print items anchor to one or the other)
@@ -45,7 +61,7 @@ function measure(page: boolean): PageLayout {
 // Inner pages: where the content leaves room (see PageFrame), from the rendered
 // page at scroll 0. Rounded to 2 % so tiny reflows don't rebuild the scene.
 function measureFrame(): PageFrame {
-  const vw = Math.max(1, window.innerWidth), vh = Math.max(1, window.innerHeight), sy = window.scrollY;
+  const vw = Math.max(1, window.innerWidth), vh = viewportHeight(), sy = window.scrollY;
   const q = (x: number) => Math.round(x * 50) / 50;
   const textRect = (el: Element) => { const r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect(); };
   let L = vw, R = 0, titleX = 0, bandY = 1;
@@ -101,6 +117,7 @@ const Background = memo(function Background({ pageKind, pageSlug = "" }: Backgro
   }, [pageKind]);
   const pagePrint = useMemo(() => (pageKind && frame ? pageItems(pageKind, pageSeed, frame) : undefined), [pageKind, pageSeed, frame]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const carryRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const deviceTier = useStore((s) => s.deviceTier);
@@ -125,6 +142,9 @@ const Background = memo(function Background({ pageKind, pageSlug = "" }: Backgro
     const full = (deviceTier === "desktop" || deviceTier === "wide") && !reducedMotion;
     // phones / tablets: the lite build, but alive — a slow rotation at ~30 fps
     const living = !reducedMotion;
+    // touch: the compositor carries the canvas and the print layout
+    const cmp = living && compositorScroll();
+    const carryEl = carryRef.current;
     let engine: AlloyEngine | null = null;
     // set in cleanup: a disposed engine's late texture callback (onReady) must
     // not restart this effect's loop. StrictMode and device-tier changes re-run
@@ -138,6 +158,12 @@ const Background = memo(function Background({ pageKind, pageSlug = "" }: Backgro
     }
     canvas.style.display = engine ? "block" : "none";
     if (!engine) alloyBus.sceneReady = true;
+    const camSheet = cmp && engine ? styleSheet() : null;
+    let camName = "";
+    if (camSheet && carryEl) {
+      canvas.style.position = "relative";
+      carryEl.style.willChange = "transform";
+    }
 
     const camFor = (l: PageLayout) => (pageKind ? (s: number) => s * PAGE_PARALLAX[pageKind] : makeCamScroll(l));
     let layout = measure(!!pageKind);
@@ -215,18 +241,52 @@ const Background = memo(function Background({ pageKind, pageSlug = "" }: Backgro
       measureName();
       measureHeads();
       camScroll = camFor(layout);
-      engine?.resize(window.innerWidth, window.innerHeight, dpr());
+      const vh = viewportHeight(), k = dpr();
+      const pad = camSheet ? Math.round(PAD * k) / k : 0;
+      engine?.resize(window.innerWidth, vh, k, pad);
       engine?.setLayout(layout);
-      print.current?.setLayout(layout, camScroll, measureKeepOut());
+      const bends = pageKind ? [] : camBends(layout);
+      if (camSheet) {
+        // the canvas: −pad, 2·pad taller, and its carry as keyframes of the camera curve
+        canvas.style.top = `${-pad}px`;
+        canvas.style.height = `calc(100vh + ${2 * pad}px)`;
+        const range = Math.ceil((layout.maxScrollVH + 1.5) * vh);
+        camName = scrollTag("carry");
+        camSheet.set(
+          scrollKeyframes(camName, { breaks: bends, f: (s) => -CARRY * camScroll(s) * vh, css: (v) => `transform:translate3d(0,${cssNum(v)}px,0)` }, vh, range) +
+          `[data-carry="${camName}"]{animation:${camName} linear both;animation-timeline:scroll(root block);animation-range:0px ${range}px}`,
+        );
+        if (carrying) canvas.setAttribute("data-carry", camName);
+      }
+      print.current?.setLayout(layout, camScroll, measureKeepOut(), cmp ? { bends } : null);
       dirty = true;
       kick();
+    };
+
+    // The carry: while the page moves, the canvas sits CARRY × (camera scroll
+    // at this frame) lower than its place, and the compositor's keyframes
+    // lift it by CARRY × (camera scroll now), so between frames it follows
+    // the scroll. Off at rest, so a settled frame is never resampled.
+    let carrying = false;
+    let quiet = 0;
+    const carry = (moving: boolean, s: number) => {
+      if (!camSheet || !carryEl) return;
+      quiet = moving ? 0 : quiet + 1;
+      if (quiet < 8) {
+        carryEl.style.transform = `translate3d(0,${CARRY * camScroll(s) * viewportHeight()}px,0)`;
+        if (!carrying) { canvas.setAttribute("data-carry", camName); carrying = true; }
+      } else if (carrying) {
+        carryEl.style.transform = "";
+        canvas.removeAttribute("data-carry");
+        carrying = false;
+      }
     };
 
     const tick = () => {
       raf = 0;
       if (disposed) return;
       const sy = window.scrollY;
-      const vh = Math.max(1, window.innerHeight);
+      const vh = viewportHeight();
       const s = sy / vh;
       // the finale timeline (spring-smoothed by Dive.tsx; none without a Dive)
       const dive = reducedMotion ? 0 : alloyBus.diveLive ? alloyBus.dive : 0;
@@ -254,6 +314,7 @@ const Background = memo(function Background({ pageKind, pageSlug = "" }: Backgro
           mask(hb.x, top, hb.width, hb.height, 0.72);
         }
         engine.frame({ scrollVH: s, time, dive, velocity: full ? scrollVelocityRef.current : 0, masks, maskCount: n });
+        if (engine.ready) carry(moving, s);
       }
       // also while the finale timeline is still moving after the scroll stops
       if (moving) {
@@ -281,9 +342,18 @@ const Background = memo(function Background({ pageKind, pageSlug = "" }: Backgro
       if (resizeTimer) clearTimeout(resizeTimer);
       resizeTimer = setTimeout(doResize, 150);
     };
+    // a window resize that leaves the width and the (large) viewport height
+    // alone is a toolbar sliding in or out: nothing to measure or reallocate
+    let winSize = `${window.innerWidth}x${viewportHeight()}`;
+    const onWinResize = () => {
+      const now = `${window.innerWidth}x${viewportHeight()}`;
+      if (now === winSize) return;
+      winSize = now;
+      onResize();
+    };
     const onScroll = () => { if (!living) kick(); };
     const onVis = () => { if (!document.hidden) kick(); };
-    window.addEventListener("resize", onResize);
+    window.addEventListener("resize", onWinResize);
     window.addEventListener("scroll", onScroll, { passive: true });
     document.addEventListener("visibilitychange", onVis);
     // section heights settle after fonts / images — re-measure a few times
@@ -294,7 +364,7 @@ const Background = memo(function Background({ pageKind, pageSlug = "" }: Backgro
     return () => {
       disposed = true;
       if (engine) engine.onReady = null;
-      window.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", onWinResize);
       window.removeEventListener("scroll", onScroll);
       document.removeEventListener("visibilitychange", onVis);
       settle.forEach(clearTimeout);
@@ -303,6 +373,13 @@ const Background = memo(function Background({ pageKind, pageSlug = "" }: Backgro
       if (raf) cancelAnimationFrame(raf);
       raf = 0;
       alloyBus.glFinale = false;
+      if (camSheet) {
+        camSheet.remove();
+        canvas.removeAttribute("data-carry");
+        canvas.style.position = canvas.style.top = "";
+        canvas.style.height = "100vh";
+        if (carryEl) carryEl.style.transform = carryEl.style.willChange = "";
+      }
       engine?.dispose();
       engine = null;
     };
@@ -312,7 +389,9 @@ const Background = memo(function Background({ pageKind, pageSlug = "" }: Backgro
     <div ref={rootRef} aria-hidden="true" className="pointer-events-none">
       {(!pageKind || pagePrint) && <PrintLayers key={frameKey} ref={print} vclass={vclass} items={pagePrint} />}
       <div ref={wrapRef} className="fixed inset-0" style={{ zIndex: 2, opacity: 0, transition: "opacity 1400ms cubic-bezier(0.16, 1, 0.3, 1)" }}>
-        <canvas ref={canvasRef} style={{ width: "100vw", height: "100vh", display: "block" }} />
+        <div ref={carryRef}>
+          <canvas ref={canvasRef} style={{ width: "100vw", height: "100vh", display: "block" }} />
+        </div>
       </div>
     </div>
   );

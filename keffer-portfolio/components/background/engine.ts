@@ -71,6 +71,14 @@ export function makeCamScroll(layout: PageLayout): (s: number) => number {
   };
 }
 
+/** Where makeCamScroll's curve bends (linear | quadratic | held), for keyframes. */
+export function camBends(layout: PageLayout): number[] {
+  const c = layout.sections.contact, d = layout.sections.dive;
+  if (!c) return [];
+  const h0 = c[0] - 0.25;
+  return [h0, d ? d[0] + 0.1 : h0 + 1];
+}
+
 export function homeScroll(layout: PageLayout, section: SectionId, t: number): number {
   if (section === "hero") return 0;
   const sec = layout.sections[section];
@@ -123,6 +131,10 @@ export class AlloyEngine {
   private w = 1;
   private h = 1;
   private dpr = 1;
+  /** Overscan (css px) rendered above and below the viewport; see resize(). */
+  private pad = 0;
+  /** Inverse of the viewport's own projection (the camera's carries the overscan). */
+  private projInv0 = new THREE.Matrix4();
   private quality: Quality;
   private bloomOn: boolean;
   private rtBloom: THREE.WebGLRenderTarget | null = null;
@@ -183,6 +195,7 @@ export class AlloyEngine {
       uDpr: { value: 1 },
       uLineW: { value: 1.38 },
       uLight: { value: new THREE.Vector3(-0.5, 0.72, 0.48).normalize() },
+      uFragOff: { value: new THREE.Vector2() },
     };
     this.setPaper(PAPER);
 
@@ -211,7 +224,7 @@ export class AlloyEngine {
       fragmentShader: MIRROR_FRAG,
       uniforms: {
         uEnv: this.shared.uEnv, uEnvW: this.shared.uEnvW, uEnvYaw: this.shared.uEnvYaw, uTime: this.shared.uTime,
-        uPresence: { value: 1 }, uHaze: { value: 0 }, uPaper: this.shared.uPaper, uHot: this.shared.uHot,
+        uFragOff: this.shared.uFragOff, uPresence: { value: 1 }, uHaze: { value: 0 }, uPaper: this.shared.uPaper, uHot: this.shared.uHot,
         uBloom: { value: 0 }, uRipple: { value: 0 }, uTiltDark: this.shared.uTiltDark,
         uSky: { value: null }, uSkyAspect: { value: 1.5 }, uRes: { value: new THREE.Vector2(1, 1) },
         uInvProj: { value: new THREE.Matrix4() }, uCamWorld: { value: new THREE.Matrix4() }, uViewProj: { value: new THREE.Matrix4() },
@@ -437,7 +450,7 @@ export class AlloyEngine {
           vertexShader: GRAPHITE_VERT, fragmentShader: GRAPHITE_FRAG,
           uniforms: {
             uTex: { value: null }, uAlpha: { value: gr.alpha }, uPresence: uniforms[0].uPresence, uBloom: this.shared.uBloom,
-            uMasks: this.shared.uMasks, uMaskAmt: this.shared.uMaskAmt, uNameSoft: this.shared.uNameSoft,
+            uMasks: this.shared.uMasks, uMaskAmt: this.shared.uMaskAmt, uNameSoft: this.shared.uNameSoft, uFragOff: this.shared.uFragOff,
           },
           transparent: true, depthWrite: false, depthTest: true, side: THREE.DoubleSide,
           blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
@@ -514,14 +527,29 @@ export class AlloyEngine {
     }
   }
 
-  resize(w: number, h: number, dpr: number) {
-    this.w = Math.max(1, w);
-    this.h = Math.max(1, h);
+  /**
+   * Viewport size, pixel ratio and overscan. With `pad` > 0 the canvas is
+   * that much taller above and below the viewport (the caller offsets it by
+   * −pad) and the camera renders the extra rows with the viewport's own
+   * projection, so the viewport's pixels are unchanged: the compositor can
+   * then shift the canvas between frames without uncovering an edge.
+   */
+  resize(w: number, h: number, dpr: number, pad = 0) {
+    w = Math.max(1, w);
+    h = Math.max(1, h);
+    // same size: setting the canvas size would only clear and reallocate it
+    if (w === this.w && h === this.h && dpr === this.dpr && pad === this.pad) { this.place(); return; }
+    this.w = w;
+    this.h = h;
     this.dpr = dpr;
+    this.pad = pad;
     this.renderer.setPixelRatio(dpr);
-    this.renderer.setSize(this.w, this.h, false);
+    this.renderer.setSize(this.w, this.h + 2 * pad, false);
     this.camera.aspect = this.w / this.h;
-    this.camera.updateProjectionMatrix();
+    this.camera.clearViewOffset();
+    this.projInv0.copy(this.camera.projectionMatrixInverse);
+    if (pad) this.camera.setViewOffset(this.w, this.h, 0, -pad, this.w, this.h + 2 * pad);
+    (this.shared.uFragOff.value as THREE.Vector2).set(0, pad * dpr);
     this.shared.uDpr.value = dpr;
     if (this.bloomOn) this.setupBloom();
     this.place();
@@ -529,7 +557,7 @@ export class AlloyEngine {
 
   private setupBloom() {
     const bw = Math.max(64, Math.round((this.w * this.dpr) / 4));
-    const bh = Math.max(64, Math.round((this.h * this.dpr) / 4));
+    const bh = Math.max(64, Math.round(((this.h + 2 * this.pad) * this.dpr) / 4));
     const opts = { type: THREE.HalfFloatType, depthBuffer: false, stencilBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
     this.rtBloom?.dispose(); this.rtA?.dispose(); this.rtB?.dispose(); this.rtC?.dispose(); this.rtD?.dispose();
     this.rtBloom = new THREE.WebGLRenderTarget(bw, bh, { ...opts, depthBuffer: true });
@@ -724,7 +752,7 @@ export class AlloyEngine {
     if (mirror) {
       const u = this.mirrorMat.uniforms;
       u.uRes.value.set(this.w * this.dpr, this.h * this.dpr);
-      u.uInvProj.value.copy(this.camera.projectionMatrixInverse);
+      u.uInvProj.value.copy(this.projInv0);
       u.uCamWorld.value.copy(this.camera.matrixWorld);
       u.uView.value.copy(this.camera.matrixWorldInverse);
       u.uViewProj.value.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
@@ -740,6 +768,7 @@ export class AlloyEngine {
     const v = _v.copy(this.diveTarget).project(this.camera);
     out[0] = v.x * 0.5 + 0.5;
     out[1] = 0.5 - v.y * 0.5;
+    if (this.pad) out[1] = (out[1] * (this.h + 2 * this.pad) - this.pad) / this.h;
     return out;
   }
 

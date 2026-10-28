@@ -720,6 +720,12 @@ body {
   position: relative;
   z-index: 20;
   pointer-events: auto;
+  /* Nothing in the content may widen the page: a page wider than the phone
+     pans sideways under a scrolling thumb (and Chrome lays it out wider than
+     the screen). The viewport cut anything past its edge off already; clip
+     (unlike hidden) makes no scroll container, so the Dive's sticky card
+     still sticks. */
+  overflow-x: clip;
 }
 
 /* Frosted glass panel for content readability against busy background */

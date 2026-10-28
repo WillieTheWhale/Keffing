@@ -23,7 +23,19 @@
 // (scripts/background/make_env.py, make_env_white.py). Values >= ~0.95
 // are boosted into HDR; the bloom pass only ever sees that excess.
 
+// uFragOff: gl_FragCoord of the viewport's bottom-left corner. Touch devices
+// render a margin above and below the viewport (engine.ts, overscan) so the
+// compositor can carry the canvas between frames; screen-space terms stay
+// anchored to the viewport. Zero elsewhere.
+const FRAG_OFF = /* glsl */ `
+#ifndef FRAG_OFF
+#define FRAG_OFF
+uniform vec2 uFragOff;
+#endif
+`;
+
 export const COMMON = /* glsl */ `
+${FRAG_OFF}
 uniform sampler2D uEnv;
 uniform sampler2D uEnvW;
 uniform float uEnvYaw;
@@ -75,16 +87,17 @@ vec3 shoulder(vec3 c) {
   return mix(c, k, step(0.78, c));
 }
 float printGrain() {
-  return fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
+  return fract(sin(dot(floor(gl_FragCoord.xy - uFragOff), vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
 }
 `;
 
 const MASKS = /* glsl */ `
+${FRAG_OFF}
 uniform vec4 uMasks[4];  // text blocks in device px (x0, y0, x1, y1), gl_FragCoord space
 uniform vec4 uMaskAmt;
 uniform float uNameSoft; // falloff px
 float boxMask(vec4 b) {
-  vec2 p = gl_FragCoord.xy;
+  vec2 p = gl_FragCoord.xy - uFragOff;
   vec2 c = 0.5 * (b.xy + b.zw);
   vec2 hs = 0.5 * (b.zw - b.xy);
   vec2 q = abs(p - c) - hs;
@@ -491,7 +504,7 @@ float hotMaskM(vec3 rr) {
 }
 
 void main() {
-  vec2 suv = gl_FragCoord.xy / uRes;
+  vec2 suv = (gl_FragCoord.xy - uFragOff) / uRes;
   vec2 ndc = suv * 2.0 - 1.0;
   vec4 vp = uInvProj * vec4(ndc, 1.0, 1.0);
   vp /= vp.w;
