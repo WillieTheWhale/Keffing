@@ -7,6 +7,7 @@
 
 import { hardwareDevices } from "./hardware";
 import { mediaEntries } from "./media";
+import { readingEntries } from "./reading";
 
 export type StuffId = "hardware" | "software" | "media" | "stussy" | "reading";
 
@@ -96,9 +97,14 @@ export const stuffCollections: StuffCollection[] = [
     title: "Reading",
     descriptor: "articles worth the tab, lately",
     standfirst:
-      "Links I keep sending people. Papers, essays, and the occasional thread — recent first, with one line on why it stuck.",
+      "Links I keep sending people. Papers, essays, and the occasional X article — recent first, with one line on what each is about.",
     metaLabel: "Source",
-    items: pending(5),
+    items: readingEntries.map((r) => ({
+      name: r.title,
+      note: r.note,
+      meta: `${r.by} · ${r.venue}${r.year ? ` · ${r.year}` : ""}`,
+      url: r.url,
+    })),
   },
 ];
 
