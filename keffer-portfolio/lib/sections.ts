@@ -24,7 +24,7 @@ export interface SectionMeta {
 export const SECTIONS: SectionMeta[] = [
   { id: "hero", num: "01", indexLabel: "SIGNAL", indexNote: "the burst" },
   { id: "about", num: "02", indexLabel: "BIO", indexNote: "first silence" },
-  { id: "work", num: "03", indexLabel: "WORK", indexNote: "selected projects" },
+  { id: "work", num: "03", indexLabel: "PROJECTS", indexNote: "the reel" },
   { id: "stuff", num: "04", indexLabel: "MY STUFF", indexNote: "hardware · software · media · stüssy · reading" },
   { id: "experience", num: "05", indexLabel: "EXPERIENCE", indexNote: "roles & extracurriculars" },
   { id: "contact", num: "06", indexLabel: "CONTACT", indexNote: "open channel" },

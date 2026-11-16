@@ -202,15 +202,14 @@ export default function WorkSection() {
       id="work"
       ref={ref}
       className="relative flex flex-col justify-center py-20"
-      aria-label="Work and project archive"
+      aria-label="Projects"
       style={{ minHeight: "100vh" }}
     >
       <div className="w-full">
         <div className="px-6 md:px-12 lg:px-20">
-          <SectionTitle num="03" eyebrow="Project archive" title="WORK" inView={isInView} />
+          <SectionTitle num="03" eyebrow="Archive" title="PROJECTS" inView={isInView} />
 
           <p className="mark-caption max-w-[68ch] -mt-4 mb-2 md:mb-0" style={{ fontSize: 10, lineHeight: 1.7 }}>
-            the full archive on one reel — {N} files.{" "}
             {isMobile ? "swipe the wheel." : "page with the arrows, or ← → from the keyboard."}
           </p>
         </div>

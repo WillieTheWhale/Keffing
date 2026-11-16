@@ -149,7 +149,7 @@ export default function ProjectCard({
       {/* Links */}
       <div className="flex items-center gap-6">
         <button type="button" onClick={openCase} className="typed-link">
-          open case file &rarr;
+          more info &rarr;
         </button>
         {project.url && (
           <a href={project.url} target="_blank" rel="noopener noreferrer" className="typed-link">

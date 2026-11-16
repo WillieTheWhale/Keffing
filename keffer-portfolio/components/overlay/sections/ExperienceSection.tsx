@@ -165,7 +165,7 @@ function Strip({
                   openVeil(() => router.push(to));
                 }}
               >
-                case file
+                more info
               </Link>
             )}
             {e.url && <a className="typed-link" href={e.url} target="_blank" rel="noopener noreferrer">{e.host} &#8599;</a>}
