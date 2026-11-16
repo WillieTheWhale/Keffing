@@ -64,7 +64,7 @@ export default function WorkSection() {
   }, [isMobile]);
 
   // The drum's transform is written imperatively: touch drags update it
-  // every frame, and re-rendering 31 spokes at 60fps is exactly the kind
+  // every frame, and re-rendering every spoke at 60fps is exactly the kind
   // of scroll-frame React work the perf overhaul removed elsewhere.
   const thetaRef = useRef(0);
   const applyTheta = useCallback(

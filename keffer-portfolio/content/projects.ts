@@ -111,22 +111,6 @@ const projectCatalog = [
     image: withBase("/assets/logos/blockd.png"),
   },
   {
-    id: "llm-image-prompt-injection",
-    title: "LLM Image Prompt Injection",
-    description:
-      "A cybersecurity proof of concept studying how LLM-based image-processing tools can be manipulated through prompt injection and misleading visual content.",
-    tags: ["Python", "TypeScript", "Security Research", "Docker", "Redis"],
-    github: "https://github.com/WillieTheWhale/LLM_Image_Prompt_Injection",
-  },
-  {
-    id: "kuramoto-neural",
-    title: "Kuramoto Neural",
-    description:
-      "An interactive neural Kuramoto synchronization simulator for the Natural Sciences Computing Club, presenting coupled-oscillator and brain-network dynamics through a stylized browser visualization.",
-    tags: ["Scientific Visualization", "Kuramoto Model", "HTML"],
-    github: "https://github.com/WillieTheWhale/Kuramoto_Neural",
-  },
-  {
     id: "umbra",
     title: "Umbra",
     description:
@@ -141,44 +125,6 @@ const projectCatalog = [
       "A Python prototype for portable, validated context bundles that let AI coding agents hand work off without losing the causal trail behind decisions.",
     tags: ["Python", "MCP", "Agent Handoffs", "Context Engineering"],
     github: "https://github.com/WillieTheWhale/NYInternHacks",
-  },
-  {
-    id: "polymarket-research",
-    title: "Polymarket Research System",
-    description:
-      "A paper-trading research system for short-window Polymarket crypto markets that combines Chainlink Data Streams, market replay, strategy validation, latency research, and explicit safety gates that keep live trading disabled by default.",
-    tags: ["Rust", "Python", "SQLite", "Chainlink", "Paper Trading"],
-  },
-  {
-    id: "hermes-setup",
-    title: "Hermes on CloudApps",
-    description:
-      "An OpenShift deployment workspace for Hermes Agent, including Kubernetes manifests, VPN setup, deployment scripts, Telegram bridge configuration, and OpenAI Codex OAuth documentation.",
-    tags: ["OpenShift", "Kubernetes", "Python", "Shell", "OAuth"],
-  },
-  {
-    id: "ventures",
-    title: "Ventures",
-    description:
-      "A full-stack internship application portal for KPMG Summer Ventures with applicant registration, multi-step applications, document uploads, custom essays, admin review, account approval, email/auth integration, and Supabase-backed storage.",
-    tags: ["Next.js", "React", "TypeScript", "Supabase", "Tailwind"],
-    github: "https://github.com/WillieTheWhale/Ventures",
-  },
-  {
-    id: "comp211-quiz",
-    title: "COMP 211 Quiz Prep",
-    description:
-      "A React quiz-prep application with practice problems, timers, scoring, progress tracking, and review flows for number representation, binary arithmetic, bitwise operations, Makefiles, Bash, and C systems concepts.",
-    tags: ["React", "Vite", "Education", "Systems"],
-    github: "https://github.com/WillieTheWhale/211_Q2",
-  },
-  {
-    id: "mtgox",
-    title: "MtGox",
-    description:
-      "A transparent automation bot for low-cost EC2 repository maintenance that schedules, generates, commits, and pushes clearly labeled maintenance artifacts without pretending to be human activity.",
-    tags: ["Python", "SQLite", "EC2", "Automation"],
-    github: "https://github.com/WillieTheWhale/MtGox",
   },
   {
     id: "nscc-website",
@@ -212,106 +158,6 @@ const projectCatalog = [
     github: "https://github.com/WillieTheWhale/EEL_Website",
     url: "https://eel.unc.edu",
     image: withBase("/assets/logos/eel.jpg"),
-  },
-  {
-    id: "harimau-theme",
-    title: "Harimau Theme",
-    description:
-      "A customized Shopify Liquid storefront with modular sections and snippets, product, cart, and search templates, theme settings, brand-lore components, and original retail design assets.",
-    tags: ["Shopify", "Liquid", "JavaScript", "E-commerce"],
-  },
-  {
-    id: "saotome",
-    title: "Saotome Global Academy",
-    description:
-      "A bilingual Japanese and English website for an online tutoring service serving Japanese families in the United States, with language switching, service pages, team profiles, testimonials, articles, and contact flows.",
-    tags: ["Bilingual Web", "HTML", "CSS", "JavaScript"],
-    github: "https://github.com/WillieTheWhale/Saotome",
-  },
-  {
-    id: "maritime",
-    title: "Dauntless Maritime",
-    description:
-      "A static front-end site presenting the services and visual identity of Dauntless Maritime Services.",
-    tags: ["HTML", "CSS", "JavaScript", "Client Work"],
-    github: "https://github.com/WillieTheWhale/Maritime",
-  },
-  {
-    id: "ryanverse",
-    title: "Ryanverse",
-    description:
-      "A portfolio-style web experience for Ryan built around a retro desktop interface, resume and CV viewers, custom icons, background media, and miniature application pages.",
-    tags: ["HTML", "CSS", "JavaScript", "Portfolio"],
-  },
-  {
-    id: "jc",
-    title: "John Christopher Portfolio",
-    description:
-      "A custom portfolio website for John Christopher, built with a modern React and Next.js front end.",
-    tags: ["Next.js", "React", "TypeScript", "Client Work"],
-    github: "https://github.com/WillieTheWhale/JC",
-  },
-  {
-    id: "keffing",
-    title: "Keffing",
-    description:
-      "A personal portfolio experiment using probability-driven generative design so each page load can produce a distinct visual composition while preserving a consistent identity.",
-    tags: ["Next.js", "React", "TypeScript", "GLSL", "Generative Design"],
-    github: "https://github.com/WillieTheWhale/Keffing",
-  },
-  {
-    id: "events-planning",
-    title: "Event RSVP Prototype",
-    description:
-      "A local event-planning and RSVP front-end prototype with static pages, guest assets, typography experiments, visual audit screenshots, and a simulated RSVP experience.",
-    tags: ["HTML", "CSS", "JavaScript", "Prototyping"],
-  },
-  {
-    id: "blockd-landing",
-    title: "Blockd Landing",
-    description:
-      "The product landing page and waitlist experience for Blockd, built as a focused TypeScript front end separate from the core platform.",
-    tags: ["TypeScript", "CSS", "Product Marketing"],
-    github: "https://github.com/WillieTheWhale/Blockd_Landing",
-  },
-  {
-    id: "cdc-house",
-    title: "CDC House",
-    description:
-      "A machine-learning workflow repository connected to CDC-oriented research and data exploration. The available inventory contains only a short project description.",
-    tags: ["Machine Learning", "Research Workflow", "Archive"],
-    github: "https://github.com/WillieTheWhale/cdcHouse",
-  },
-  {
-    id: "vitshetyn",
-    title: "Vitshetyn Campaign",
-    description:
-      "A compact campaign platform created for Mark Vitshetyn's AEPI vice-president campaign.",
-    tags: ["HTML", "Campaign Site", "Client Work"],
-    github: "https://github.com/WillieTheWhale/Vitshetyn",
-  },
-  {
-    id: "wortschatz",
-    title: "Wortschatz",
-    description:
-      "A lightweight German 203 vocabulary web project preserved in the project archive.",
-    tags: ["HTML", "Language Learning", "Course Tool"],
-    github: "https://github.com/WillieTheWhale/wortschatz",
-  },
-  {
-    id: "polymarket-archive",
-    title: "Polymarket Archive",
-    description:
-      "An earlier local Polymarket workspace with limited surviving evidence. It is listed as an archive record; the richer paper-trading research system is the authoritative project above.",
-    tags: ["Archive", "Documentation Pending"],
-  },
-  {
-    id: "kpmg-private",
-    title: "KPMG Private Prototype",
-    description:
-      "A private repository retained as an inventory placeholder. Public documentation is not yet sufficient to describe the implementation responsibly.",
-    tags: ["Private", "Documentation Pending"],
-    github: "https://github.com/WillieTheWhale/KPMG",
   },
 ] satisfies ProjectCatalogEntry[];
 
