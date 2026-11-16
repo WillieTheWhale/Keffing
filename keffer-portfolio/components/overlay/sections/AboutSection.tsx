@@ -39,15 +39,17 @@ export default function AboutSection() {
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ type: "spring", ...springs.gentle, delay: 0.3 }}
           >
-            William is a Junior pursuing a BS in Computer Science and
-            Mathematics at UNC Chapel Hill. His research includes adversarial
-            machine learning, vision-language model security, and
-            satellite-economic analysis. His primary interests now are machine
-            learning and the intersections of analysis and abstract algebra
-            with computational methods. He loves talking about all things
-            related to these fields. In his free time William enjoys designing
-            redstone contraptions in technical Minecraft, tending his Stardew
-            Valley farm, and listening to Pitcher 56 and Aphex Twin.
+            I&apos;m William. I build software for people doing other kinds of
+            work: a coding-agent harness for UNC&apos;s computer science classes,
+            the controls for a fluid dynamics lab&apos;s thirty-piston wave maker,
+            and websites for the labs and student groups around campus. The
+            ideas I keep coming back to are in machine learning, especially
+            reinforcement learning and the alignment problems that come with
+            it, and in the places where analysis and abstract algebra turn
+            into something you can compute. Away from that, I build redstone
+            in technical Minecraft, make espresso, and keep Feng and Lamp on
+            repeat. I&apos;m a junior at UNC Chapel Hill studying computer science
+            and math.
           </motion.p>
 
           <motion.p
@@ -61,23 +63,8 @@ export default function AboutSection() {
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ type: "spring", ...springs.gentle, delay: 0.45 }}
           >
-            I built this site to reflect some of the design styles and
-            aesthetics that resonate with me. Inspired by the abstract work
-            of{" "}
-            <a
-              href="https://www.instagram.com/aletiune/?hl=en"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: "#0099FF", textDecoration: "none", borderBottom: "1px solid rgba(0, 153, 255, 0.3)" }}
-            >
-              Aletiune
-            </a>
-            , the page is one composition built in layers: edge-traced cables
-            and liquid chrome drawn in WebGL, screen-printed sky photographs,
-            flat blocks, typed marginalia. It runs on Next.js 16 with
-            TypeScript, Tailwind CSS, and Zustand, and every prominent element
-            is placed by hand — only the fine texture is generated, from a
-            single fixed seed, so what you see is the same picture every time.
+            The site runs on Next.js and TypeScript, with the background
+            rendered in three.js between two layers of printed paper.
           </motion.p>
 
           {/* Skills as a typed list */}
